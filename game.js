@@ -584,13 +584,13 @@ function renderStatsTable(
 
     let status = getEliminationStatusText(item);
 
-    if (isParticipant && item.pendingEquipmentLoss) {
-      status += "；待拋棄衣物";
-    } else if (
-      isParticipant &&
+    if (isParticipant &&
       !item.equipment.length
     ) {
-      status += "；衣物已用盡";
+      status += "；全裸";
+    } else if (
+      isParticipant && item.pendingEquipmentLoss) {
+      status += "；待拋棄衣物";
     }
 
     cells.push(status);
