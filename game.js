@@ -11,6 +11,30 @@ const DEFAULT_EQUIPMENT = [
   "上衣", "裙子", "胸罩", "內褲"
 ];
 
+const PARTICIPANT_SURNAMES = [
+  "陳", "林", "黃", "張", "王", "吳", "劉", "蔡",
+  "楊", "許", "鄭", "謝", "洪", "郭", "邱", "曾",
+  "廖", "賴", "徐", "周", "葉", "蘇", "莊", "呂",
+  "江", "何", "蕭", "羅", "高", "潘", "簡", "朱",
+  "鍾", "游", "彭", "詹", "胡", "施", "沈", "余",
+  "盧", "梁", "趙", "顏", "柯", "翁", "魏", "孫",
+  "戴", "范", "方", "宋", "鄧", "杜", "傅", "侯",
+  "曹", "薛", "丁", "張簡", "陳", "林", "黃", "張"
+];
+
+function createRandomParticipantNames(count) {
+  const surnames = [...PARTICIPANT_SURNAMES];
+
+  for (let i = surnames.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [surnames[i], surnames[j]] = [surnames[j], surnames[i]];
+  }
+
+  return surnames
+    .slice(0, count)
+    .map(surname => `${surname}小姐`);
+}
+
 const EQUIPMENT_BLOCKERS = {
   洋裝: ["外套"],
   上衣: ["外套"],
@@ -80,7 +104,7 @@ function blockPendingEquipment() {
     return false;
   }
 
-  alert("請先完成本回合的衣物拋棄，再進行此操作。");
+  alert("請先本回合拋棄衣物，再進行此操作");
   return true;
 }
 
@@ -355,7 +379,7 @@ function renderEquipmentDiscardPanel() {
       "div",
       gameConfig.equipmentRule === "unlimited"
         ? "每次拋棄後可依目前順序繼續選擇；至少拋棄一件後，按「完成拋棄」才能開始下一把。"
-        : "全部落敗者完成選擇後，才能開始下一把。",
+        : "確認脫掉後，再進行下一把",
       "small"
     )
   );
@@ -1151,12 +1175,13 @@ async function createGame() {
   };
 
   participants = [];
+const randomNames = createRandomParticipantNames(playerCount);
 
   for (let i = 0; i < playerCount; i++) {
     participants.push({
       id: i + 1,
       participantKey: createParticipantKey(),
-      name: `參賽者 ${i + 1}`,
+      name: randomNames[i],
       avatar: "",
       teamId: null,
       controlled: false,
@@ -3537,11 +3562,13 @@ async function createNextTournamentRound() {
       return;
     }
 
+const randomNames = createRandomParticipantNames(nextPlayerCount);
+
     for (let i = 0; i < nextPlayerCount; i++) {
       newParticipants.push({
         id: i + 1,
         participantKey: createParticipantKey(),
-        name: `參賽者 ${i + 1}`,
+        name: randomNames[i],
         avatar: "",
         teamId: null,
         controlled: false,
@@ -4232,7 +4259,7 @@ function getEliminationStatusText(item) {
       : "";
 
   if (penalty) {
-    return `淘汰！處罰：${penalty}`;
+    return `淘汰！${penalty}`;
   }
 
   return "淘汰！";
