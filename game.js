@@ -536,7 +536,7 @@ function renderStatsTable(
     headings.push("衣物數量", "剩餘衣物");
   }
 
-  headings.push("狀態");
+  headings.push("結果");
 
   const header = element("tr");
 
@@ -4223,7 +4223,7 @@ function getCrossDesiredOutcome(
 
 function getEliminationStatusText(item) {
   if (!item.eliminated) {
-    return "加油！";
+    return " ";
   }
 
   const penalty =
