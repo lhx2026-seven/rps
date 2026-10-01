@@ -1,5 +1,5 @@
 // ============================================================
-// Gamma 裝備系統
+// Gamma 衣物系統
 // ============================================================
 
 const EQUIPMENT_TYPES = [
@@ -80,7 +80,7 @@ function blockPendingEquipment() {
     return false;
   }
 
-  alert("請先完成本回合的裝備拋棄，再進行此操作。");
+  alert("請先完成本回合的衣物拋棄，再進行此操作。");
   return true;
 }
 
@@ -176,14 +176,14 @@ function renderEquipmentSettings(participant, card) {
   const box = element("div", undefined, "inherit-box");
   box.style.marginTop = "12px";
 
-  box.appendChild(element("strong", "個別起始裝備"));
+  box.appendChild(element("strong", "個別衣物設定"));
 
   box.appendChild(
     element(
       "div",
       roundNumber > 0
-        ? "本回合已開始，起始裝備已鎖定。"
-        : "可獨立勾選；不按全體套用，就不影響其他參賽者。",
+        ? "本回合已開始，起始衣物已鎖定。"
+        : "各參賽者可獨立勾選",
       "small"
     )
   );
@@ -246,7 +246,7 @@ function renderEquipmentSettings(participant, card) {
   box.appendChild(
     element(
       "div",
-      `剩餘裝備 ${participant.equipment.length}/${participant.initialEquipment.length}：${participant.equipment.join("、") || "無"}`,
+      `剩餘衣物 ${participant.equipment.length}/${participant.initialEquipment.length}：${participant.equipment.join("、") || "無"}`,
       "small"
     )
   );
@@ -270,7 +270,7 @@ function initializeEquipmentControls() {
       }
 
       if (roundNumber > 0) {
-        alert("起始裝備只能在本回合開始前設定。");
+        alert("起始衣物只能在本回合開始前設定。");
         return;
       }
 
@@ -345,8 +345,8 @@ function renderEquipmentDiscardPanel() {
     element(
       "h3",
       gameConfig.equipmentRule === "unlimited"
-        ? "落敗者請至少拋棄一件裝備，可繼續逐件拋棄"
-        : "落敗者請選擇拋棄一件裝備"
+        ? "落敗者請至少拋棄一件衣物，可繼續逐件拋棄"
+        : "請選擇落敗者需脫掉的衣物"
     )
   );
 
@@ -369,7 +369,7 @@ function renderEquipmentDiscardPanel() {
       box.appendChild(
         element(
           "div",
-          `已拋棄 ${participant.pendingEquipmentDiscards || 0} 件；尚有 ${participant.equipment.length} 件裝備。`,
+          `已拋棄 ${participant.pendingEquipmentDiscards || 0} 件；尚有 ${participant.equipment.length} 件衣物。`,
           "small"
         )
       );
@@ -413,7 +413,7 @@ function renderEquipmentDiscardPanel() {
 
     box.appendChild(choices);
 
-    const confirm = element("button", "確認拋棄");
+    const confirm = element("button", "請脫");
     confirm.type = "button";
     confirm.disabled = roundBusy;
 
@@ -422,7 +422,7 @@ function renderEquipmentDiscardPanel() {
         choices.querySelector("input:checked");
 
       if (!selected) {
-        alert("請選擇一件目前可合法拋棄的裝備。");
+        alert("請選擇一件目前可合法拋棄的衣物。");
         return;
       }
 
@@ -430,7 +430,7 @@ function renderEquipmentDiscardPanel() {
         discardEquipment(participant, selected.value);
 
       if (!record) {
-        alert("這件裝備目前不能拋棄。");
+        alert("這件衣物目前不能拋棄。");
         return;
       }
 
@@ -473,7 +473,7 @@ function renderEquipmentDiscardPanel() {
 
       finish.addEventListener("click", async () => {
         if ((participant.pendingEquipmentDiscards || 0) < 1) {
-          alert("無限規則至少要拋棄一件裝備，才能完成。");
+          alert("無限規則至少要拋棄一件衣物，才能完成。");
           return;
         }
 
@@ -495,7 +495,7 @@ function renderEquipmentDiscardPanel() {
     panel.appendChild(box);
   });
 
-  // 裝備選擇與出拳結果放在同一區。
+  // 衣物選擇與出拳結果放在同一區。
   resultPanel.classList.remove("hidden");
   resultList.appendChild(panel);
 }
@@ -533,7 +533,7 @@ function renderStatsTable(
   headings.push("勝", "敗", "平", "實際勝率");
 
   if (isParticipant) {
-    headings.push("裝備數量", "剩餘裝備");
+    headings.push("衣物數量", "剩餘衣物");
   }
 
   headings.push("狀態");
@@ -585,12 +585,12 @@ function renderStatsTable(
     let status = getEliminationStatusText(item);
 
     if (isParticipant && item.pendingEquipmentLoss) {
-      status += "；待拋棄裝備";
+      status += "；待拋棄衣物";
     } else if (
       isParticipant &&
       !item.equipment.length
     ) {
-      status += "；裝備已用盡";
+      status += "；衣物已用盡";
     }
 
     cells.push(status);
@@ -1425,7 +1425,7 @@ function renderParticipantSettings() {
 }
 
 // ============================================================
-// 隊伍設定
+// 分隊設定
 // ============================================================
 
 function renderTeamControls() {
@@ -1510,7 +1510,7 @@ function renderTeamControls() {
 }
 
 // ============================================================
-// 同一畫面：出拳操作、出拳結果、裝備選擇
+// 同一畫面：出拳操作、出拳結果、衣物選擇
 // ============================================================
 
 function renderOperationPanel() {
@@ -1715,7 +1715,7 @@ function renderTeamOperation() {
       text.className = "small";
 
       text.textContent =
-        "電腦將自動依照隊伍成員平均勝率出拳。";
+        "電腦將自動依照隊伍成員平均勝率出拳";
 
       card.appendChild(text);
     }
@@ -1732,7 +1732,7 @@ function renderTeamOperation() {
 
 async function startRound() {
   if (roundBusy || hasPendingEquipment()) {
-    alert("請先完成本回合的裝備拋棄。");
+    alert("請先完成本回合的衣物拋棄。");
     return;
   }
 
@@ -2856,7 +2856,7 @@ function importGameData(event) {
 }
 
 // ============================================================
-// 賽事回合管理
+// 賽事回合設定
 // ============================================================
 
 const currentRoundNameInput =
@@ -3976,7 +3976,7 @@ function addStartButton() {
     .getElementById("resetCurrentRoundBtn")
     ?.remove();
 
-  const start = element("button", "開始本回合");
+  const start = element("button", "START！");
   start.type = "button";
   start.id = "startRoundBtn";
 
@@ -4002,7 +4002,7 @@ async function resetCurrentRound() {
   if (
     !window.confirm(
       "確定重設本回合？\n\n" +
-      "將清除本回合勝負、出拳及拋棄紀錄，恢復各人的起始裝備；其他回合不受影響。"
+      "將清除本回合勝負、出拳及拋棄紀錄，恢復各人的起始衣物；其他回合不受影響。"
     )
   ) {
     return;
@@ -4232,14 +4232,14 @@ function getEliminationStatusText(item) {
       : "";
 
   if (penalty) {
-    return `淘汰，處罰：${penalty}`;
+    return `淘汰！處罰：${penalty}`;
   }
 
   return "淘汰";
 }
 
 // ============================================================
-// 啟用 Gamma 裝備設定
+// 啟用 Gamma 衣物設定
 // ============================================================
 
 initializeEquipmentControls();

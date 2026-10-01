@@ -277,9 +277,9 @@
   <div class="container">
     <h1>剪刀石頭布</h1>
 
-    <!-- 遊戲與第一回合設定 -->
+    <!-- 遊戲初始設定 -->
     <div id="gameSettingsPanel" class="panel">
-      <h2>遊戲與第一回合設定</h2>
+      <h2>遊戲初始回合設定</h2>
 
       <div class="setting-row">
         <div class="setting-title">主題</div>
@@ -297,9 +297,7 @@
           <span>我要儲存結果</span>
         </label>
         <div class="setting-description">
-          開啟後，請選擇本機資料夾。
-          同一場遊戲使用同一個 JSON 檔案，後續操作持續覆蓋。
-        </div>
+          請選擇本機資料夾        </div>
       </div>
 
       <div class="setting-row">
@@ -317,7 +315,7 @@
       <div class="setting-row">
         <label class="checkbox-setting">
           <input type="checkbox" id="teamMode">
-          <span>啟用隊伍模式</span>
+          <span>參賽者分隊</span>
         </label>
       </div>
 
@@ -337,30 +335,26 @@
             id="teamEquipmentSolidarity"
             checked
           >
-          <span>同隊連坐：代表落敗時，同隊全部參賽者都要拋棄裝備</span>
+          <span>同隊連坐</span>
         </label>
 
         <div class="setting-description">
-          預設勾選；取消後只有猜拳代表拋棄。
-          每位受影響者分別遵守本回合規則與拋棄順序。
+          取消勾選即同隊不連坐
         </div>
       </div>
 
       <div class="setting-row">
-        <div class="setting-title">裝備拋棄規則</div>
+        <div class="setting-title">野球拳規則</div>
         <select id="equipmentRule">
           <option value="normal" selected>普通規則</option>
           <option value="unlimited">無限規則</option>
         </select>
         <div class="setting-description">
-          普通規則：輸一把拋棄一件。
-          無限規則：輸一把至少拋棄一件，可繼續逐件拋棄，最後按「完成拋棄」。
-          兩種規則皆遵守目前的拋棄順序；裝備已歸零者不用再拋棄。
         </div>
       </div>
 
       <div class="setting-row">
-        <div class="setting-title">淘汰方式</div>
+        <div class="setting-title">淘汰規則</div>
         <select id="eliminationMode">
           <option value="none">無淘汰制</option>
           <option value="loss">累積淘汰制</option>
@@ -373,7 +367,7 @@
       </div>
 
       <div id="penaltyBox" class="setting-row hidden">
-        <div class="setting-title">加碼處罰</div>
+        <div class="setting-title">淘汰者處罰</div>
         <input
           type="text"
           id="eliminationPenalty"
@@ -388,9 +382,9 @@
       <button type="button" id="createGameBtn">建立遊戲</button>
     </div>
 
-    <!-- 回合管理 -->
+    <!-- 回合設定 -->
     <div id="roundManagementPanel" class="panel hidden">
-      <h2>回合管理</h2>
+      <h2>回合設定</h2>
 
       <div class="setting-row">
         <div class="setting-title">目前回合名稱</div>
@@ -452,7 +446,7 @@
             name="participantSourceMode"
             value="inherit"
           >
-          <span>從既有回合導入</span>
+          <span>帶入過往回合資料</span>
         </label>
       </div>
 
@@ -494,7 +488,7 @@
       <div class="setting-row">
         <label class="checkbox-setting">
           <input type="checkbox" id="nextTeamMode">
-          <span>啟用隊伍模式</span>
+          <span>參賽者分隊</span>
         </label>
       </div>
 
@@ -518,32 +512,28 @@
             id="nextTeamEquipmentSolidarity"
             checked
           >
-          <span>同隊連坐：代表落敗時，同隊全部參賽者都要拋棄裝備</span>
+          <span>同隊連坐</span>
         </label>
 
         <div class="setting-description">
-          預設勾選；取消後只有猜拳代表拋棄。
-          每位受影響者分別遵守本回合規則與拋棄順序。
+          取消勾選即同隊不連坐
         </div>
       </div>
 
       <div class="setting-row">
-        <div class="setting-title">裝備拋棄規則</div>
+        <div class="setting-title">野球拳規則</div>
         <select id="nextEquipmentRule">
           <option value="normal" selected>普通規則</option>
           <option value="unlimited">無限規則</option>
         </select>
         <div class="setting-description">
-          普通規則：輸一把拋棄一件。
-          無限規則：輸一把至少拋棄一件，可繼續逐件拋棄，最後按「完成拋棄」。
-          兩種規則皆遵守目前的拋棄順序；裝備已歸零者不用再拋棄。
         </div>
       </div>
 
-      <!-- 淘汰方式 -->
+      <!-- 淘汰規則 -->
 
       <div class="setting-row">
-        <div class="setting-title">淘汰方式</div>
+        <div class="setting-title">淘汰規則</div>
 
         <select id="nextEliminationMode">
           <option value="none">無淘汰制</option>
@@ -569,7 +559,7 @@
         id="nextPenaltyBox"
         class="setting-row hidden"
       >
-        <div class="setting-title">加碼處罰</div>
+        <div class="setting-title">淘汰者處罰</div>
 
         <input
           type="text"
@@ -590,17 +580,17 @@
     <div id="participantSettingsPanel" class="panel hidden">
       <h2>參賽者設定</h2>
 
-      <!-- 全體裝備設定 -->
+      <!-- 全體衣物設定 -->
 
       <div id="equipmentGlobalSettings" class="inherit-box">
-        <div class="setting-title">全體裝備設定</div>
+        <div class="setting-title">全體衣物設定</div>
 
         <div class="setting-description">
-          每位參賽者可在個別設定中選擇不同的起始裝備。
-          若全體使用相同裝備，可在此選擇後按「套用至全體參賽者」。
+          每位參賽者可在個別設定中選擇不同的起始衣物。
+          若全體使用相同衣物，可在此選擇後按「套用至全體參賽者」。
           套用後仍可個別修改。
           <br>
-          預設裝備為：上衣、裙子、胸罩、內褲。
+          預設衣物為：上衣、裙子、胸罩、內褲。
         </div>
 
         <div
@@ -697,10 +687,10 @@
         </button>
       </div>
 
-      <!-- 裝備拋棄方式 -->
+      <!-- 脫衣指定權 -->
 
       <div id="equipmentDiscardSettings" class="inherit-box">
-        <div class="setting-title">裝備拋棄方式</div>
+        <div class="setting-title">脫衣指定權</div>
 
         <label class="checkbox-setting">
           <input
@@ -724,9 +714,6 @@
         </label>
 
         <div class="setting-description">
-          拋棄件數依本回合的「普通規則／無限規則」處理。
-          無論玩家自行選擇或由電腦指定，
-          每拋棄一件都會重新判定合法選項，遵守目前的拋棄順序。
         </div>
       </div>
 
@@ -736,40 +723,40 @@
     </div>
 
     <!-- =====================================================
-         隊伍控制
+         分隊設定
          ===================================================== -->
 
     <div id="teamControlPanel" class="panel hidden">
-      <h2>隊伍控制</h2>
+      <h2>分隊設定</h2>
       <div id="teamControlList"></div>
     </div>
 
     <!-- =====================================================
-         本回合操作
+         比賽
          ===================================================== -->
 
     <div id="operationPanel" class="panel hidden">
-      <h2>本回合操作</h2>
+      <h2>比賽</h2>
 
       <div id="operationList"></div>
 
       <button type="button" id="startRoundBtn">
-        開始本回合
+        START！
       </button>
 
       <!-- 重設本回合按鍵由 JS 生成 -->
     </div>
 
     <!-- =====================================================
-         結果：JS 會整合至本回合操作區
+         結果：JS 會整合至比賽區
          ===================================================== -->
 
     <div id="resultPanel" class="panel hidden">
-      <h2>本回合結果</h2>
+      <h2>比賽結果</h2>
 
       <div id="resultList"></div>
 
-      <!-- 裝備拋棄選項與完成按鍵由 JS 生成 -->
+      <!-- 衣物拋棄選項與完成按鍵由 JS 生成 -->
     </div>
 
     <!-- =====================================================
