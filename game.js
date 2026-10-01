@@ -57,6 +57,16 @@ function ensureEquipment(participant) {
   participant.pendingEquipmentLoss =
     !!participant.pendingEquipmentLoss &&
     participant.equipment.length > 0;
+
+  participant.pendingEquipmentDiscards =
+    Math.max(
+      0,
+      Number(participant.pendingEquipmentDiscards) || 0
+    );
+
+  if (!participant.pendingEquipmentLoss) {
+    participant.pendingEquipmentDiscards = 0;
+  }
 }
 
 function hasPendingEquipment() {
@@ -97,7 +107,15 @@ function discardEquipment(participant, item) {
   participant.equipment =
     participant.equipment.filter(value => value !== item);
 
-  participant.pendingEquipmentLoss = false;
+  participant.pendingEquipmentDiscards++;
+
+  if (
+    gameConfig.equipmentRule !== "unlimited" ||
+    participant.equipment.length === 0
+  ) {
+    participant.pendingEquipmentLoss = false;
+    participant.pendingEquipmentDiscards = 0;
+  }
 
   const record = {
     participantId: participant.id,
@@ -120,17 +138,34 @@ function handleEquipmentLoss(participant) {
   }
 
   participant.pendingEquipmentLoss = true;
+  participant.pendingEquipmentDiscards = 0;
 
   if (gameConfig.equipmentDiscardMode === "computer") {
-    const options = legalEquipment(participant);
+    do {
+      const options = legalEquipment(participant);
 
-    const item =
-      options[Math.floor(Math.random() * options.length)];
+      if (options.length === 0) break;
 
-    const record = discardEquipment(participant, item);
+      const item =
+        options[Math.floor(Math.random() * options.length)];
 
-    if (record) {
-      currentEquipmentDiscards.push(record);
+      const record = discardEquipment(participant, item);
+
+      if (record) {
+        currentEquipmentDiscards.push(record);
+      }
+    } while (
+      gameConfig.equipmentRule === "unlimited" &&
+      participant.pendingEquipmentLoss
+    );
+
+    if (
+      gameConfig.equipmentRule === "unlimited" &&
+      participant.pendingEquipmentLoss &&
+      participant.equipment.length === 0
+    ) {
+      participant.pendingEquipmentLoss = false;
+      participant.pendingEquipmentDiscards = 0;
     }
   }
 }
@@ -307,13 +342,20 @@ function renderEquipmentDiscardPanel() {
     "padding:16px;margin-top:16px;border:2px solid #b33;border-radius:10px";
 
   panel.appendChild(
-    element("h3", "落敗者請選擇拋棄一件裝備")
+    element(
+      "h3",
+      gameConfig.equipmentRule === "unlimited"
+        ? "落敗者請至少拋棄一件裝備，可繼續逐件拋棄"
+        : "落敗者請選擇拋棄一件裝備"
+    )
   );
 
   panel.appendChild(
     element(
       "div",
-      "全部落敗者完成選擇後，才能開始下一把。",
+      gameConfig.equipmentRule === "unlimited"
+        ? "每次拋棄後可依目前順序繼續選擇；至少拋棄一件後，按「完成拋棄」才能開始下一把。"
+        : "全部落敗者完成選擇後，才能開始下一把。",
       "small"
     )
   );
@@ -322,6 +364,16 @@ function renderEquipmentDiscardPanel() {
     const box = element("div");
     box.style.marginTop = "14px";
     box.appendChild(element("strong", participant.name));
+
+    if (gameConfig.equipmentRule === "unlimited") {
+      box.appendChild(
+        element(
+          "div",
+          `已拋棄 ${participant.pendingEquipmentDiscards || 0} 件；尚有 ${participant.equipment.length} 件裝備。`,
+          "small"
+        )
+      );
+    }
 
     const choices = element("div");
 
@@ -403,12 +455,43 @@ function renderEquipmentDiscardPanel() {
       renderParticipantSettings();
       renderOperationPanel();
       renderStats();
+      renderEquipmentDiscardPanel();
 
       saveCurrentTournamentRoundSnapshot();
       await saveGameState();
     });
 
     box.appendChild(confirm);
+
+    if (gameConfig.equipmentRule === "unlimited") {
+      const finish = element("button", "完成拋棄");
+      finish.type = "button";
+      finish.style.marginLeft = "8px";
+      finish.disabled =
+        roundBusy ||
+        (participant.pendingEquipmentDiscards || 0) < 1;
+
+      finish.addEventListener("click", async () => {
+        if ((participant.pendingEquipmentDiscards || 0) < 1) {
+          alert("無限規則至少要拋棄一件裝備，才能完成。");
+          return;
+        }
+
+        participant.pendingEquipmentLoss = false;
+        participant.pendingEquipmentDiscards = 0;
+
+        renderParticipantSettings();
+        renderOperationPanel();
+        renderStats();
+        renderEquipmentDiscardPanel();
+
+        saveCurrentTournamentRoundSnapshot();
+        await saveGameState();
+      });
+
+      box.appendChild(finish);
+    }
+
     panel.appendChild(box);
   });
 
@@ -608,6 +691,8 @@ let gameConfig = {
   theme: "",
   saveResults: false,
   teamMode: false,
+  teamEquipmentSolidarity: true,
+  equipmentRule: "normal",
   eliminationMode: "none",
   lossLimit: 1,
   eliminationPenalty: ""
@@ -618,6 +703,7 @@ let teamRepresentatives = {};
 let roundNumber = 0;
 let roundHistory = [];
 let saveDirectoryHandle = null;
+let saveFileName = "";
 let tournamentRoundNumber = 1;
 let tournamentRounds = [];
 
@@ -642,6 +728,12 @@ const teamSettings =
 
 const teamCountInput =
   document.getElementById("teamCount");
+
+const teamEquipmentSolidarityInput =
+  document.getElementById("teamEquipmentSolidarity");
+
+const equipmentRuleInput =
+  document.getElementById("equipmentRule");
 
 const eliminationModeInput =
   document.getElementById("eliminationMode");
@@ -733,6 +825,12 @@ const nextTeamSettings =
 const nextTeamCountInput =
   document.getElementById("nextTeamCount");
 
+const nextTeamEquipmentSolidarityInput =
+  document.getElementById("nextTeamEquipmentSolidarity");
+
+const nextEquipmentRuleInput =
+  document.getElementById("nextEquipmentRule");
+
 const nextEliminationModeInput =
   document.getElementById("nextEliminationMode");
 
@@ -777,6 +875,8 @@ teamModeInput.addEventListener("change", function () {
     renderTeamControls();
     renderOperationPanel();
     renderStats();
+    saveCurrentTournamentRoundSnapshot();
+    void saveGameState();
   }
 });
 
@@ -813,6 +913,46 @@ if (nextTeamModeInput) {
   nextTeamModeInput.addEventListener(
     "change",
     updateNextTeamSettingsVisibility
+  );
+}
+
+if (teamEquipmentSolidarityInput) {
+  teamEquipmentSolidarityInput.addEventListener(
+    "change",
+    function () {
+      if (blockPendingEquipment()) {
+        teamEquipmentSolidarityInput.checked =
+          gameConfig.teamEquipmentSolidarity !== false;
+        return;
+      }
+
+      gameConfig.teamEquipmentSolidarity =
+        teamEquipmentSolidarityInput.checked;
+
+      saveCurrentTournamentRoundSnapshot();
+      void saveGameState();
+    }
+  );
+}
+
+if (equipmentRuleInput) {
+  equipmentRuleInput.addEventListener(
+    "change",
+    function () {
+      if (blockPendingEquipment()) {
+        equipmentRuleInput.value =
+          gameConfig.equipmentRule || "normal";
+        return;
+      }
+
+      gameConfig.equipmentRule =
+        equipmentRuleInput.value === "unlimited"
+          ? "unlimited"
+          : "normal";
+
+      saveCurrentTournamentRoundSnapshot();
+      void saveGameState();
+    }
   );
 }
 
@@ -998,6 +1138,12 @@ async function createGame() {
     theme: gameThemeInput.value.trim(),
     saveResults: saveResultsInput.checked,
     teamMode: useTeamMode,
+    teamEquipmentSolidarity:
+      teamEquipmentSolidarityInput?.checked !== false,
+    equipmentRule:
+      equipmentRuleInput?.value === "unlimited"
+        ? "unlimited"
+        : "normal",
     eliminationMode: eliminationModeInput.value,
     lossLimit: lossLimit,
     eliminationPenalty:
@@ -1048,6 +1194,7 @@ async function createGame() {
   roundHistory = [];
   tournamentRoundNumber = 1;
   tournamentRounds = [];
+  saveFileName = createJsonFileName();
 
   participantSettingsPanel.classList.remove("hidden");
   operationPanel.classList.remove("hidden");
@@ -2117,7 +2264,14 @@ function applyTeamResults(activeTeams, results) {
         representative.wins++;
       } else if (result === "loss") {
         representative.losses++;
-        handleEquipmentLoss(representative);
+
+        if (gameConfig.teamEquipmentSolidarity !== false) {
+          participants
+            .filter(participant => participant.teamId === team.id)
+            .forEach(handleEquipmentLoss);
+        } else {
+          handleEquipmentLoss(representative);
+        }
       } else {
         representative.ties++;
       }
@@ -2314,7 +2468,11 @@ async function saveGameState() {
       tournamentRounds: copyObject(tournamentRounds)
     };
 
-    const filename = createJsonFileName();
+    if (!saveFileName) {
+      saveFileName = createJsonFileName();
+    }
+
+    const filename = saveFileName;
 
     const fileHandle =
       await saveDirectoryHandle.getFileHandle(
@@ -2440,7 +2598,20 @@ function importGameData(event) {
         return;
       }
 
+      saveFileName =
+        file.name && file.name.toLowerCase().endsWith(".json")
+          ? file.name.replace(/[\\/:*?"<>|]/g, "_")
+          : createJsonFileName();
+
       gameConfig = data.gameConfig;
+
+      gameConfig.teamEquipmentSolidarity =
+        gameConfig.teamEquipmentSolidarity !== false;
+
+      gameConfig.equipmentRule =
+        gameConfig.equipmentRule === "unlimited"
+          ? "unlimited"
+          : "normal";
 
       if (
         gameConfig.eliminationMode === "participant" ||
@@ -2608,6 +2779,16 @@ function importGameData(event) {
 
       saveResultsInput.checked =
         !!gameConfig.saveResults;
+
+      if (teamEquipmentSolidarityInput) {
+        teamEquipmentSolidarityInput.checked =
+          gameConfig.teamEquipmentSolidarity;
+      }
+
+      if (equipmentRuleInput) {
+        equipmentRuleInput.value =
+          gameConfig.equipmentRule;
+      }
 
       playerCountInput.value =
         participants.length;
@@ -2900,6 +3081,15 @@ function switchTournamentRound(targetRoundNumber) {
     target.tournamentRoundNumber;
 
   gameConfig = copyObject(target.gameConfig);
+
+  gameConfig.teamEquipmentSolidarity =
+    gameConfig.teamEquipmentSolidarity !== false;
+
+  gameConfig.equipmentRule =
+    gameConfig.equipmentRule === "unlimited"
+      ? "unlimited"
+      : "normal";
+
   participants = copyObject(target.participants);
 
   ensureParticipantKeys(participants);
@@ -2938,6 +3128,18 @@ function syncTournamentRoundToInterface() {
 
   saveResultsInput.checked =
     !!gameConfig.saveResults;
+
+  if (teamEquipmentSolidarityInput) {
+    teamEquipmentSolidarityInput.checked =
+      gameConfig.teamEquipmentSolidarity !== false;
+  }
+
+  if (equipmentRuleInput) {
+    equipmentRuleInput.value =
+      gameConfig.equipmentRule === "unlimited"
+        ? "unlimited"
+        : "normal";
+  }
 
   playerCountInput.value =
     participants.length;
@@ -3208,6 +3410,18 @@ function openNextTournamentRoundSettings() {
       gameConfig.teamMode
         ? Math.max(2, teams.length)
         : 2;
+  }
+
+  if (nextTeamEquipmentSolidarityInput) {
+    nextTeamEquipmentSolidarityInput.checked =
+      gameConfig.teamEquipmentSolidarity !== false;
+  }
+
+  if (nextEquipmentRuleInput) {
+    nextEquipmentRuleInput.value =
+      gameConfig.equipmentRule === "unlimited"
+        ? "unlimited"
+        : "normal";
   }
 
   if (nextEliminationModeInput) {
@@ -3547,6 +3761,14 @@ async function createNextTournamentRound() {
       ? !!nextTeamModeInput.checked
       : false;
 
+  const nextTeamEquipmentSolidarity =
+    nextTeamEquipmentSolidarityInput?.checked !== false;
+
+  const nextEquipmentRule =
+    nextEquipmentRuleInput?.value === "unlimited"
+      ? "unlimited"
+      : "normal";
+
   let nextTeamCount = 0;
 
   if (useTeamMode) {
@@ -3605,6 +3827,8 @@ async function createNextTournamentRound() {
   gameConfig = {
     ...gameConfig,
     teamMode: useTeamMode,
+    teamEquipmentSolidarity: nextTeamEquipmentSolidarity,
+    equipmentRule: nextEquipmentRule,
     eliminationMode: nextEliminationMode,
     lossLimit: nextLossLimit,
     eliminationPenalty: nextPenalty

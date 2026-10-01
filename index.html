@@ -1,85 +1,37 @@
 <!DOCTYPE html>
 <html lang="zh-Hant">
-
 <head>
-
   <meta charset="UTF-8">
-
-  <meta
-    name="viewport"
-    content="width=device-width, initial-scale=1.0"
-  >
-
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>剪刀石頭布</title>
 
-
   <style>
-
-    * {
-      box-sizing: border-box;
-    }
-
+    * { box-sizing: border-box; }
 
     body {
       margin: 0;
       padding: 20px;
       background: #f5f5f5;
       color: #222;
-      font-family:
-        Arial,
-        "Microsoft JhengHei",
-        sans-serif;
+      font-family: Arial, "Microsoft JhengHei", sans-serif;
     }
 
-
-    .container {
-      max-width: 1100px;
-      margin: 0 auto;
-    }
-
-
-    h1 {
-      margin-top: 0;
-    }
-
-
-    h2 {
-      margin-top: 0;
-    }
-
+    .container { max-width: 1100px; margin: 0 auto; }
+    h1, h2 { margin-top: 0; }
 
     .panel {
       background: #fff;
       border-radius: 12px;
       padding: 20px;
       margin-bottom: 20px;
-      box-shadow:
-        0 2px 8px rgba(0, 0, 0, 0.08);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
     }
 
+    .hidden { display: none !important; }
+    .danger { color: #d00; font-weight: bold; }
+    .small { color: #666; font-size: 14px; }
 
-    .hidden {
-      display: none !important;
-    }
-
-
-    .danger {
-      color: #d00;
-      font-weight: bold;
-    }
-
-
-    .small {
-      color: #666;
-      font-size: 14px;
-    }
-
-
-    label {
-      display: block;
-      margin-bottom: 10px;
-    }
-
+    label { display: block; margin-bottom: 10px; }
 
     input[type="text"],
     input[type="number"],
@@ -90,21 +42,9 @@
       font-size: 15px;
     }
 
-
-    input[type="text"] {
-      max-width: 100%;
-    }
-
-
-    input[type="number"] {
-      width: 90px;
-    }
-
-
-    button {
-      cursor: pointer;
-    }
-
+    input[type="text"] { max-width: 100%; }
+    input[type="number"] { width: 90px; }
+    button { cursor: pointer; }
 
     #createGameBtn,
     #startRoundBtn,
@@ -118,14 +58,12 @@
       font-size: 16px;
     }
 
-
     #createGameBtn:hover,
     #startRoundBtn:hover,
     #createNextRoundBtn:hover,
     #confirmNextRoundBtn:hover {
       opacity: 0.85;
     }
-
 
     .participant-card {
       border: 1px solid #ddd;
@@ -134,12 +72,10 @@
       margin-bottom: 12px;
     }
 
-
     .participant-card.eliminated {
       opacity: 0.55;
       background: #f2f2f2;
     }
-
 
     .participant-top {
       display: flex;
@@ -148,18 +84,13 @@
       margin-bottom: 12px;
     }
 
-
-    .participant-info {
-      flex: 1;
-    }
-
+    .participant-info { flex: 1; }
 
     .participant-name {
       font-size: 17px;
       font-weight: bold;
       margin-bottom: 4px;
     }
-
 
     .avatar {
       width: 64px;
@@ -170,7 +101,6 @@
       flex-shrink: 0;
     }
 
-
     .operation-avatar {
       width: 50px;
       height: 50px;
@@ -180,20 +110,14 @@
       flex-shrink: 0;
     }
 
-
     .participant-controls {
       display: grid;
-      grid-template-columns:
-        repeat(auto-fit, minmax(180px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
       gap: 10px;
       align-items: center;
     }
 
-
-    .participant-controls label {
-      margin: 0;
-    }
-
+    .participant-controls label { margin: 0; }
 
     .team-control {
       border: 1px solid #ddd;
@@ -201,7 +125,6 @@
       padding: 15px;
       margin-bottom: 12px;
     }
-
 
     .team-control-header {
       display: flex;
@@ -211,23 +134,9 @@
       margin-bottom: 10px;
     }
 
-
-    .team-control-header input[type="text"] {
-      flex: 1;
-    }
-
-
-    .team-control-header label {
-      margin: 0;
-      white-space: nowrap;
-    }
-
-
-    .team-member-list {
-      color: #555;
-      font-size: 14px;
-    }
-
+    .team-control-header input[type="text"] { flex: 1; }
+    .team-control-header label { margin: 0; white-space: nowrap; }
+    .team-member-list { color: #555; font-size: 14px; }
 
     .operation-card {
       border: 1px solid #ddd;
@@ -236,7 +145,6 @@
       margin-bottom: 12px;
     }
 
-
     .operation-header {
       display: flex;
       align-items: center;
@@ -244,12 +152,7 @@
       margin-bottom: 15px;
     }
 
-
-    .throw-buttons {
-      display: flex;
-      gap: 10px;
-    }
-
+    .throw-buttons { display: flex; gap: 10px; }
 
     .throw-btn {
       width: 64px;
@@ -261,21 +164,9 @@
       cursor: pointer;
     }
 
-
-    .throw-btn:hover {
-      background: #f3f3f3;
-    }
-
-
-    .representative-select {
-      margin-bottom: 15px;
-    }
-
-
-    .representative-select select {
-      margin-left: 5px;
-    }
-
+    .throw-btn:hover { background: #f3f3f3; }
+    .representative-select { margin-bottom: 15px; }
+    .representative-select select { margin-left: 5px; }
 
     .result-card {
       display: flex;
@@ -287,21 +178,9 @@
       border: 1px solid #ddd;
     }
 
-
-    .result-win {
-      background: #f0fff0;
-    }
-
-
-    .result-loss {
-      background: #fff0f0;
-    }
-
-
-    .result-tie {
-      background: #f5f5f5;
-    }
-
+    .result-win { background: #f0fff0; }
+    .result-loss { background: #fff0f0; }
+    .result-tie { background: #f5f5f5; }
 
     .result-fist {
       width: 45px;
@@ -309,66 +188,28 @@
       text-align: center;
     }
 
+    .status-win { color: #168a16; font-weight: bold; }
+    .status-loss { color: #d00000; font-weight: bold; }
+    .status-tie { color: #666; font-weight: bold; }
 
-    .status-win {
-      color: #168a16;
-      font-weight: bold;
-    }
+    table { width: 100%; border-collapse: collapse; }
 
-
-    .status-loss {
-      color: #d00000;
-      font-weight: bold;
-    }
-
-
-    .status-tie {
-      color: #666;
-      font-weight: bold;
-    }
-
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-    }
-
-
-    th,
-    td {
+    th, td {
       padding: 10px;
       border-bottom: 1px solid #ddd;
       text-align: left;
     }
 
-
-    th {
-      background: #f5f5f5;
-    }
-
-
-    .setting-row {
-      margin-bottom: 18px;
-    }
-
-
-    .setting-row:last-child {
-      margin-bottom: 0;
-    }
-
-
-    .setting-title {
-      font-weight: bold;
-      margin-bottom: 7px;
-    }
-
+    th { background: #f5f5f5; }
+    .setting-row { margin-bottom: 18px; }
+    .setting-row:last-child { margin-bottom: 0; }
+    .setting-title { font-weight: bold; margin-bottom: 7px; }
 
     .setting-description {
       color: #777;
       font-size: 13px;
       margin-top: 4px;
     }
-
 
     .checkbox-setting {
       display: flex;
@@ -377,14 +218,7 @@
       margin-bottom: 0;
     }
 
-
-    .checkbox-setting input {
-      width: 17px;
-      height: 17px;
-    }
-
-
-    /* Beta：回合管理 */
+    .checkbox-setting input { width: 17px; height: 17px; }
 
     .round-header {
       display: flex;
@@ -394,11 +228,7 @@
       flex-wrap: wrap;
     }
 
-
-    .round-header h2 {
-      margin-bottom: 0;
-    }
-
+    .round-header h2 { margin-bottom: 0; }
 
     .round-tabs {
       display: flex;
@@ -407,7 +237,6 @@
       margin-top: 18px;
     }
 
-
     .round-tab {
       padding: 8px 14px;
       border: 1px solid #ccc;
@@ -415,13 +244,11 @@
       background: #fff;
     }
 
-
     .round-tab.active {
       background: #222;
       color: #fff;
       border-color: #222;
     }
-
 
     .inherit-box {
       border: 1px solid #ddd;
@@ -430,110 +257,53 @@
       margin-bottom: 15px;
     }
 
-
     @media (max-width: 700px) {
-
-      body {
-        padding: 10px;
-      }
-
-
-      .panel {
-        padding: 15px;
-      }
-
-
-      .participant-controls {
-        grid-template-columns: 1fr;
-      }
-
+      body { padding: 10px; }
+      .panel { padding: 15px; }
+      .participant-controls { grid-template-columns: 1fr; }
 
       .team-control-header {
         flex-direction: column;
         align-items: stretch;
       }
 
-
-      table {
-        font-size: 13px;
-      }
-
-
-      th,
-      td {
-        padding: 7px;
-      }
-
+      table { font-size: 13px; }
+      th, td { padding: 7px; }
     }
-
   </style>
-
 </head>
 
-
 <body>
-
   <div class="container">
-
     <h1>剪刀石頭布</h1>
 
-
-    <!-- =====================================================
-         遊戲設定
-         ===================================================== -->
-
-    <div
-      id="gameSettingsPanel"
-      class="panel"
-    >
-
-      <h2>遊戲設定</h2>
-
+    <!-- 遊戲與第一回合設定 -->
+    <div id="gameSettingsPanel" class="panel">
+      <h2>遊戲與第一回合設定</h2>
 
       <div class="setting-row">
-
-        <div class="setting-title">
-          主題
-        </div>
-
+        <div class="setting-title">主題</div>
         <input
           type="text"
           id="gameTheme"
           placeholder="例如：剪刀石頭布"
           style="width:100%;"
         >
-
       </div>
 
-
-      <div class="setting-row">
-
+      <div class="setting-row setting-item">
         <label class="checkbox-setting">
-
-          <input
-            type="checkbox"
-            id="saveResults"
-          >
-
-          <span>
-            我要儲存結果
-          </span>
-
+          <input type="checkbox" id="saveResults">
+          <span>我要儲存結果</span>
         </label>
-
         <div class="setting-description">
-          開啟後，遊戲結果將儲存在本機瀏覽器。
+          開啟後，請選擇本機資料夾。
+          同一場遊戲使用同一個 JSON 檔案，後續操作持續覆蓋。
         </div>
-
       </div>
 
-
       <div class="setting-row">
-
-        <div class="setting-title">
-          參賽人數
-        </div>
-
+        <div class="setting-title">參賽人數</div>
         <input
           type="number"
           id="playerCount"
@@ -541,41 +311,18 @@
           max="64"
           value="2"
         >
-
-        <div class="setting-description">
-          2～64 人
-        </div>
-
+        <div class="setting-description">2～64 人</div>
       </div>
-
 
       <div class="setting-row">
-
         <label class="checkbox-setting">
-
-          <input
-            type="checkbox"
-            id="teamMode"
-          >
-
-          <span>
-            啟用隊伍模式
-          </span>
-
+          <input type="checkbox" id="teamMode">
+          <span>啟用隊伍模式</span>
         </label>
-
       </div>
 
-
-      <div
-        id="teamSettings"
-        class="setting-row hidden"
-      >
-
-        <div class="setting-title">
-          隊伍數
-        </div>
-
+      <div id="teamSettings" class="setting-row hidden">
+        <div class="setting-title">隊伍數</div>
         <input
           type="number"
           id="teamCount"
@@ -584,648 +331,459 @@
           value="2"
         >
 
+        <label class="checkbox-setting" style="margin-top:12px;">
+          <input
+            type="checkbox"
+            id="teamEquipmentSolidarity"
+            checked
+          >
+          <span>同隊連坐：代表落敗時，同隊全部參賽者都要拋棄裝備</span>
+        </label>
+
+        <div class="setting-description">
+          預設勾選；取消後只有猜拳代表拋棄。
+          每位受影響者分別遵守本回合規則與拋棄順序。
+        </div>
       </div>
 
+      <div class="setting-row">
+        <div class="setting-title">裝備拋棄規則</div>
+        <select id="equipmentRule">
+          <option value="normal" selected>普通規則</option>
+          <option value="unlimited">無限規則</option>
+        </select>
+        <div class="setting-description">
+          普通規則：輸一把拋棄一件。
+          無限規則：輸一把至少拋棄一件，可繼續逐件拋棄，最後按「完成拋棄」。
+          兩種規則皆遵守目前的拋棄順序；裝備已歸零者不用再拋棄。
+        </div>
+      </div>
 
       <div class="setting-row">
-
-        <div class="setting-title">
-          淘汰方式
-        </div>
-
+        <div class="setting-title">淘汰方式</div>
         <select id="eliminationMode">
           <option value="none">無淘汰制</option>
           <option value="loss">累積淘汰制</option>
         </select>
-
       </div>
 
-
-      <div
-        id="lossLimitBox"
-        class="setting-row hidden"
-      >
-
-        <div class="setting-title">
-          累積幾敗淘汰
-        </div>
-
-        <input
-          type="number"
-          id="lossLimit"
-          min="1"
-          value="1"
-        >
-
+      <div id="lossLimitBox" class="setting-row hidden">
+        <div class="setting-title">累積幾敗淘汰</div>
+        <input type="number" id="lossLimit" min="1" value="1">
       </div>
 
-
-      <div
-        id="penaltyBox"
-        class="setting-row hidden"
-      >
-
-        <div class="setting-title">
-          加碼處罰
-        </div>
-
+      <div id="penaltyBox" class="setting-row hidden">
+        <div class="setting-title">加碼處罰</div>
         <input
           type="text"
           id="eliminationPenalty"
           placeholder=""
           style="width:100%;"
         >
-
         <div class="setting-description">
           當本回合有參賽者被淘汰時，將在結果中顯示此內容。
         </div>
-
       </div>
 
+      <button type="button" id="createGameBtn">建立遊戲</button>
+    </div>
 
-      <button
-        type="button"
-        id="createGameBtn"
-      >
-        建立遊戲
+    <!-- 回合管理 -->
+    <div id="roundManagementPanel" class="panel hidden">
+      <h2>回合管理</h2>
+
+      <div class="setting-row">
+        <div class="setting-title">目前回合名稱</div>
+        <input
+          type="text"
+          id="currentRoundName"
+          placeholder="例如：預賽、複賽、冠軍賽"
+          style="width:100%;"
+        >
+        <button
+          type="button"
+          id="saveCurrentRoundNameBtn"
+          style="margin-top:8px;"
+        >
+          儲存回合名稱
+        </button>
+      </div>
+
+      <div
+        id="roundTabs"
+        style="margin-top:15px; margin-bottom:15px;"
+      ></div>
+
+      <button type="button" id="createNextRoundBtn">
+        ＋ 新增回合
       </button>
-
     </div>
 
-<!-- =========================================================
-     Beta：回合管理
-========================================================= -->
+    <!-- 新增回合設定 -->
+    <div id="nextRoundSettingsPanel" class="panel hidden">
+      <h2>新增回合</h2>
 
-<div id="roundManagementPanel" class="panel hidden">
+      <div class="setting-row">
+        <div class="setting-title">回合名稱</div>
+        <input
+          type="text"
+          id="nextRoundName"
+          placeholder="例如：預賽、複賽、冠軍賽"
+          style="width:100%;"
+        >
+      </div>
 
-  <h2>回合管理</h2>
+      <div class="inherit-box">
+        <div class="setting-title">參賽者資料</div>
 
-  <!-- 目前回合名稱 -->
-  <div class="setting-row">
-    <div class="setting-title">目前回合名稱</div>
+        <label class="checkbox-setting">
+          <input
+            type="radio"
+            name="participantSourceMode"
+            value="new"
+            checked
+          >
+          <span>建立全新參賽者</span>
+        </label>
 
-    <input
-      type="text"
-      id="currentRoundName"
-      placeholder="例如：預賽、複賽、冠軍賽"
-      style="width:100%;"
-    >
+        <label class="checkbox-setting">
+          <input
+            type="radio"
+            name="participantSourceMode"
+            value="inherit"
+          >
+          <span>從既有回合導入</span>
+        </label>
+      </div>
 
-    <button
-      type="button"
-      id="saveCurrentRoundNameBtn"
-      style="margin-top:8px;"
-    >
-      儲存回合名稱
-    </button>
-  </div>
+      <div id="newParticipantSettings" class="inherit-box">
+        <div class="setting-title">參賽人數</div>
+        <input
+          type="number"
+          id="nextPlayerCount"
+          min="2"
+          max="64"
+          value="2"
+        >
+        <div class="setting-description">
+          建立新的參賽者，不延續任何之前回合資料。
+        </div>
+      </div>
 
-  <!-- 回合切換頁籤 -->
-  <div
-    id="roundTabs"
-    style="margin-top:15px; margin-bottom:15px;"
-  ></div>
+      <div id="inheritParticipantSettings" class="inherit-box hidden">
+        <div class="setting-title">參賽者來源</div>
+        <div id="sourceRoundList"></div>
 
-  <!-- 新增回合 -->
-  <button
-    type="button"
-    id="createNextRoundBtn"
-  >
-    ＋ 新增回合
-  </button>
+        <button type="button" id="addSourceRoundBtn">
+          ＋ 增加來源回合
+        </button>
 
-</div>
+        <label class="checkbox-setting" style="margin-top:12px;">
+          <input type="checkbox" id="inheritStats">
+          <span>累積所選參賽者的既有成績</span>
+        </label>
 
+        <div class="setting-description">
+          可從一個或多個既有回合挑選參賽者。
+          開啟累積統計後，將延續所選參賽者既有的勝、敗、平手紀錄。
+        </div>
+      </div>
 
-<!-- =========================================================
-     Beta：新增回合設定
-========================================================= -->
+      <!-- 隊伍模式 -->
 
-<div id="nextRoundSettingsPanel" class="panel hidden">
+      <div class="setting-row">
+        <label class="checkbox-setting">
+          <input type="checkbox" id="nextTeamMode">
+          <span>啟用隊伍模式</span>
+        </label>
+      </div>
 
-  <h2>新增回合</h2>
-
-  <!-- 新回合名稱 -->
-  <div class="setting-row">
-    <div class="setting-title">回合名稱</div>
-
-    <input
-      type="text"
-      id="nextRoundName"
-      placeholder="例如：預賽、複賽、冠軍賽"
-      style="width:100%;"
-    >
-  </div>
-
-
-  <!-- =====================================================
-       參賽者來源
-  ====================================================== -->
-
-  <div class="inherit-box">
-
-    <div class="setting-title">
-      參賽者資料
-    </div>
-
-    <label class="checkbox-setting">
-      <input
-        type="radio"
-        name="participantSourceMode"
-        value="new"
-        checked
+      <div
+        id="nextTeamSettings"
+        class="setting-row hidden"
       >
+        <div class="setting-title">隊伍數</div>
 
-      <span>
-        建立全新參賽者
-      </span>
-    </label>
+        <input
+          type="number"
+          id="nextTeamCount"
+          min="2"
+          max="32"
+          value="2"
+        >
 
-    <label class="checkbox-setting">
-      <input
-        type="radio"
-        name="participantSourceMode"
-        value="inherit"
+        <label class="checkbox-setting" style="margin-top:12px;">
+          <input
+            type="checkbox"
+            id="nextTeamEquipmentSolidarity"
+            checked
+          >
+          <span>同隊連坐：代表落敗時，同隊全部參賽者都要拋棄裝備</span>
+        </label>
+
+        <div class="setting-description">
+          預設勾選；取消後只有猜拳代表拋棄。
+          每位受影響者分別遵守本回合規則與拋棄順序。
+        </div>
+      </div>
+
+      <div class="setting-row">
+        <div class="setting-title">裝備拋棄規則</div>
+        <select id="nextEquipmentRule">
+          <option value="normal" selected>普通規則</option>
+          <option value="unlimited">無限規則</option>
+        </select>
+        <div class="setting-description">
+          普通規則：輸一把拋棄一件。
+          無限規則：輸一把至少拋棄一件，可繼續逐件拋棄，最後按「完成拋棄」。
+          兩種規則皆遵守目前的拋棄順序；裝備已歸零者不用再拋棄。
+        </div>
+      </div>
+
+      <!-- 淘汰方式 -->
+
+      <div class="setting-row">
+        <div class="setting-title">淘汰方式</div>
+
+        <select id="nextEliminationMode">
+          <option value="none">無淘汰制</option>
+          <option value="loss">累積淘汰制</option>
+        </select>
+      </div>
+
+      <div
+        id="nextLossLimitBox"
+        class="setting-row hidden"
       >
+        <div class="setting-title">累積幾敗淘汰</div>
 
-      <span>
-        從既有回合導入
-      </span>
-    </label>
+        <input
+          type="number"
+          id="nextLossLimit"
+          min="1"
+          value="1"
+        >
+      </div>
 
-  </div>
-
-
-  <!-- =====================================================
-       建立全新參賽者
-  ====================================================== -->
-
-  <div
-    id="newParticipantSettings"
-    class="inherit-box"
-  >
-
-    <div class="setting-title">
-      參賽人數
-    </div>
-
-    <input
-      type="number"
-      id="nextPlayerCount"
-      min="2"
-      max="64"
-      value="2"
-    >
-
-    <div class="setting-description">
-      建立新的參賽者，不延續任何之前回合資料。
-    </div>
-
-  </div>
-
-
-  <!-- =====================================================
-       從既有回合導入
-  ====================================================== -->
-
-  <div
-    id="inheritParticipantSettings"
-    class="inherit-box hidden"
-  >
-
-    <div class="setting-title">
-      參賽者來源
-    </div>
-
-    <div id="sourceRoundList"></div>
-
-    <button
-      type="button"
-      id="addSourceRoundBtn"
-    >
-      ＋ 增加來源回合
-    </button>
-
-    <label
-      class="checkbox-setting"
-      style="margin-top:12px;"
-    >
-
-      <input
-        type="checkbox"
-        id="inheritStats"
+      <div
+        id="nextPenaltyBox"
+        class="setting-row hidden"
       >
+        <div class="setting-title">加碼處罰</div>
 
-      <span>
-        累積所選參賽者的既有成績
-      </span>
+        <input
+          type="text"
+          id="nextEliminationPenalty"
+          style="width:100%;"
+        >
+      </div>
 
-    </label>
-
-    <div class="setting-description">
-      可從一個或多個既有回合挑選參賽者。
-      開啟累積統計後，將延續所選參賽者既有的勝、敗、平手紀錄。
+      <button type="button" id="confirmNextRoundBtn">
+        建立新回合
+      </button>
     </div>
-
-  </div>
-
-
-  <!-- =====================================================
-       隊伍模式
-  ====================================================== -->
-
-  <div class="setting-row">
-
-    <label class="checkbox-setting">
-
-      <input
-        type="checkbox"
-        id="nextTeamMode"
-      >
-
-      <span>
-        啟用隊伍模式
-      </span>
-
-    </label>
-
-  </div>
-
-  <div
-    id="nextTeamSettings"
-    class="setting-row hidden"
-  >
-
-    <div class="setting-title">
-      隊伍數
-    </div>
-
-    <input
-      type="number"
-      id="nextTeamCount"
-      min="2"
-      max="32"
-      value="2"
-    >
-
-  </div>
-
-
-  <!-- =====================================================
-       淘汰方式
-  ====================================================== -->
-
-  <div class="setting-row">
-
-    <div class="setting-title">
-      淘汰方式
-    </div>
-
-    <select id="nextEliminationMode">
-
-      <option value="none">
-        無淘汰制
-      </option>
-
-      <option value="loss">
-        累積淘汰制
-      </option>
-
-    </select>
-
-  </div>
-
-
-  <!-- 累積敗場 -->
-
-  <div
-    id="nextLossLimitBox"
-    class="setting-row hidden"
-  >
-
-    <div class="setting-title">
-      累積幾敗淘汰
-    </div>
-
-    <input
-      type="number"
-      id="nextLossLimit"
-      min="1"
-      value="1"
-    >
-
-  </div>
-
-
-  <!-- 加碼處罰 -->
-
-  <div
-    id="nextPenaltyBox"
-    class="setting-row hidden"
-  >
-
-    <div class="setting-title">
-      加碼處罰
-    </div>
-
-    <input
-      type="text"
-      id="nextEliminationPenalty"
-      style="width:100%;"
-    >
-
-  </div>
-
-
-  <!-- 建立新回合 -->
-
-  <button
-    type="button"
-    id="confirmNextRoundBtn"
-  >
-    建立新回合
-  </button>
-
-</div>
-
-</div>
-
 
     <!-- =====================================================
          參賽者設定
          ===================================================== -->
 
-   <div
-  id="participantSettingsPanel"
-  class="panel hidden"
->
+    <div id="participantSettingsPanel" class="panel hidden">
+      <h2>參賽者設定</h2>
 
-  <h2>參賽者設定</h2>
+      <!-- 全體裝備設定 -->
 
+      <div id="equipmentGlobalSettings" class="inherit-box">
+        <div class="setting-title">全體裝備設定</div>
 
-  <!-- =====================================================
-       Gamma：全體裝備設定
-       ===================================================== -->
+        <div class="setting-description">
+          每位參賽者可在個別設定中選擇不同的起始裝備。
+          若全體使用相同裝備，可在此選擇後按「套用至全體參賽者」。
+          套用後仍可個別修改。
+          <br>
+          預設裝備為：上衣、裙子、胸罩、內褲。
+        </div>
 
-  <div
-    id="equipmentGlobalSettings"
-    class="inherit-box"
-  >
+        <div
+          id="globalEquipmentList"
+          class="equipment-options"
+        >
+          <label class="checkbox-setting">
+            <input
+              type="checkbox"
+              value="外套"
+              class="global-equipment-checkbox"
+            >
 
-    <div class="setting-title">
-      全體裝備設定
+            <span>外套</span>
+          </label>
+
+          <label class="checkbox-setting">
+            <input
+              type="checkbox"
+              value="洋裝"
+              class="global-equipment-checkbox"
+            >
+
+            <span>洋裝</span>
+          </label>
+
+          <label class="checkbox-setting">
+            <input
+              type="checkbox"
+              value="上衣"
+              class="global-equipment-checkbox"
+              checked
+            >
+
+            <span>上衣</span>
+          </label>
+
+          <label class="checkbox-setting">
+            <input
+              type="checkbox"
+              value="裙子"
+              class="global-equipment-checkbox"
+              checked
+            >
+
+            <span>裙子</span>
+          </label>
+
+          <label class="checkbox-setting">
+            <input
+              type="checkbox"
+              value="褲子"
+              class="global-equipment-checkbox"
+            >
+
+            <span>褲子</span>
+          </label>
+
+          <label class="checkbox-setting">
+            <input
+              type="checkbox"
+              value="褲襪"
+              class="global-equipment-checkbox"
+            >
+
+            <span>褲襪</span>
+          </label>
+
+          <label class="checkbox-setting">
+            <input
+              type="checkbox"
+              value="胸罩"
+              class="global-equipment-checkbox"
+              checked
+            >
+
+            <span>胸罩</span>
+          </label>
+
+          <label class="checkbox-setting">
+            <input
+              type="checkbox"
+              value="內褲"
+              class="global-equipment-checkbox"
+              checked
+            >
+
+            <span>內褲</span>
+          </label>
+        </div>
+
+        <button type="button" id="applyEquipmentToAllBtn">
+          套用至全體參賽者
+        </button>
+      </div>
+
+      <!-- 裝備拋棄方式 -->
+
+      <div id="equipmentDiscardSettings" class="inherit-box">
+        <div class="setting-title">裝備拋棄方式</div>
+
+        <label class="checkbox-setting">
+          <input
+            type="radio"
+            name="equipmentDiscardMode"
+            value="manual"
+            checked
+          >
+
+          <span>玩家自行選擇</span>
+        </label>
+
+        <label class="checkbox-setting">
+          <input
+            type="radio"
+            name="equipmentDiscardMode"
+            value="computer"
+          >
+
+          <span>由電腦指定</span>
+        </label>
+
+        <div class="setting-description">
+          拋棄件數依本回合的「普通規則／無限規則」處理。
+          無論玩家自行選擇或由電腦指定，
+          每拋棄一件都會重新判定合法選項，遵守目前的拋棄順序。
+        </div>
+      </div>
+
+      <!-- 個別參賽者內容由 JS 生成 -->
+
+      <div id="participantList"></div>
     </div>
-
-    <div class="setting-description">
-      選擇裝備後，可一鍵套用至所有參賽者。
-      預設裝備為：上衣、裙子、胸罩、內褲。
-    </div>
-
-
-    <div
-      id="globalEquipmentList"
-      style="
-        display:flex;
-        flex-wrap:wrap;
-        gap:12px;
-        margin-top:12px;
-        margin-bottom:12px;
-      "
-    >
-
-      <label class="checkbox-setting">
-        <input
-          type="checkbox"
-          value="外套"
-          class="global-equipment-checkbox"
-        >
-        <span>外套</span>
-      </label>
-
-
-      <label class="checkbox-setting">
-        <input
-          type="checkbox"
-          value="洋裝"
-          class="global-equipment-checkbox"
-        >
-        <span>洋裝</span>
-      </label>
-
-
-      <label class="checkbox-setting">
-        <input
-          type="checkbox"
-          value="上衣"
-          class="global-equipment-checkbox"
-          checked
-        >
-        <span>上衣</span>
-      </label>
-
-
-      <label class="checkbox-setting">
-        <input
-          type="checkbox"
-          value="裙子"
-          class="global-equipment-checkbox"
-          checked
-        >
-        <span>裙子</span>
-      </label>
-
-
-      <label class="checkbox-setting">
-        <input
-          type="checkbox"
-          value="褲子"
-          class="global-equipment-checkbox"
-        >
-        <span>褲子</span>
-      </label>
-
-
-      <label class="checkbox-setting">
-        <input
-          type="checkbox"
-          value="褲襪"
-          class="global-equipment-checkbox"
-        >
-        <span>褲襪</span>
-      </label>
-
-
-      <label class="checkbox-setting">
-        <input
-          type="checkbox"
-          value="胸罩"
-          class="global-equipment-checkbox"
-          checked
-        >
-        <span>胸罩</span>
-      </label>
-
-
-      <label class="checkbox-setting">
-        <input
-          type="checkbox"
-          value="內褲"
-          class="global-equipment-checkbox"
-          checked
-        >
-        <span>內褲</span>
-      </label>
-
-    </div>
-
-
-    <button
-      type="button"
-      id="applyEquipmentToAllBtn"
-    >
-      套用至全體參賽者
-    </button>
-
-  </div>
-
-
-  <!-- =====================================================
-       Gamma：裝備拋棄方式
-       ===================================================== -->
-
-  <div
-    id="equipmentDiscardSettings"
-    class="inherit-box"
-  >
-
-    <div class="setting-title">
-      裝備拋棄方式
-    </div>
-
-
-    <label class="checkbox-setting">
-
-      <input
-        type="radio"
-        name="equipmentDiscardMode"
-        value="manual"
-        checked
-      >
-
-      <span>
-        玩家自行選擇
-      </span>
-
-    </label>
-
-
-    <label class="checkbox-setting">
-
-      <input
-        type="radio"
-        name="equipmentDiscardMode"
-        value="computer"
-      >
-
-      <span>
-        由電腦指定
-      </span>
-
-    </label>
-
-
-    <div class="setting-description">
-      每次猜拳落敗，該參賽者必須拋棄一件目前可合法拋棄的裝備。
-    </div>
-
-  </div>
-
-
-  <!-- =====================================================
-       個別參賽者設定
-       ===================================================== -->
-
-  <div id="participantList"></div>
-
-</div>
-
 
     <!-- =====================================================
          隊伍控制
          ===================================================== -->
 
-    <div
-      id="teamControlPanel"
-      class="panel hidden"
-    >
-
+    <div id="teamControlPanel" class="panel hidden">
       <h2>隊伍控制</h2>
-
       <div id="teamControlList"></div>
-
     </div>
-
 
     <!-- =====================================================
          本回合操作
          ===================================================== -->
 
-    <div
-      id="operationPanel"
-      class="panel hidden"
-    >
-
+    <div id="operationPanel" class="panel hidden">
       <h2>本回合操作</h2>
 
       <div id="operationList"></div>
 
-
-      <button
-        type="button"
-        id="startRoundBtn"
-      >
+      <button type="button" id="startRoundBtn">
         開始本回合
       </button>
 
+      <!-- 重設本回合按鍵由 JS 生成 -->
     </div>
 
-
     <!-- =====================================================
-         結果
+         結果：JS 會整合至本回合操作區
          ===================================================== -->
 
-    <div
-      id="resultPanel"
-      class="panel hidden"
-    >
-
+    <div id="resultPanel" class="panel hidden">
       <h2>本回合結果</h2>
 
       <div id="resultList"></div>
 
+      <!-- 裝備拋棄選項與完成按鍵由 JS 生成 -->
     </div>
-
 
     <!-- =====================================================
          統計
          ===================================================== -->
 
-    <div
-      id="statsPanel"
-      class="panel hidden"
-    >
-
+    <div id="statsPanel" class="panel hidden">
       <h2>統計</h2>
-
       <div id="statsList"></div>
-
     </div>
 
   </div>
 
-
   <script src="game.js"></script>
-
 </body>
 
 </html>
