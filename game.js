@@ -4280,7 +4280,7 @@ function appendEquipmentDiscardMessage(record) {
   resultList.appendChild(
     element(
       "div",
-      `${record.participantName} 拋棄：${record.equipment}`,
+      `${record.participantName} 脫掉${record.equipment}`,
       "small"
     )
   );
