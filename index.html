@@ -431,23 +431,15 @@
         <div class="setting-title">參賽者資料</div>
 
         <label class="checkbox-setting">
-          <input
-            type="radio"
-            name="participantSourceMode"
-            value="new"
-            checked
-          >
-          <span>建立全新參賽者</span>
-        </label>
+  <input type="checkbox" id="createNewParticipants" checked>
+  <span>建立全新參賽者</span>
+</label>
 
-        <label class="checkbox-setting">
-          <input
-            type="radio"
-            name="participantSourceMode"
-            value="inherit"
-          >
-          <span>帶入過往回合資料</span>
-        </label>
+<label class="checkbox-setting">
+  <input type="checkbox" id="importExistingParticipants">
+  <span>帶入過往回合資料</span>
+</label>
+
       </div>
 
       <div id="newParticipantSettings" class="inherit-box">
@@ -455,7 +447,7 @@
         <input
           type="number"
           id="nextPlayerCount"
-          min="2"
+          min="1"
           max="64"
           value="2"
         >

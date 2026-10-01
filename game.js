@@ -1,542 +1,4 @@
 // ============================================================
-// Gamma 衣物系統
-// ============================================================
-
-const EQUIPMENT_TYPES = [
-  "外套", "洋裝", "上衣", "裙子",
-  "褲子", "褲襪", "胸罩", "內褲"
-];
-
-const DEFAULT_EQUIPMENT = [
-  "上衣", "裙子", "胸罩", "內褲"
-];
-
-const PARTICIPANT_SURNAMES = [
-  "陳", "林", "黃", "張", "王", "吳", "劉", "蔡",
-  "楊", "許", "鄭", "謝", "洪", "郭", "邱", "曾",
-  "廖", "賴", "徐", "周", "葉", "蘇", "莊", "呂",
-  "江", "何", "蕭", "羅", "高", "潘", "簡", "朱",
-  "鍾", "游", "彭", "詹", "胡", "施", "沈", "余",
-  "盧", "梁", "趙", "顏", "柯", "翁", "魏", "孫",
-  "戴", "范", "方", "宋", "鄧", "杜", "傅", "侯",
-  "曹", "薛", "丁", "張簡", "陳", "林", "黃", "張"
-];
-
-function createRandomParticipantNames(count) {
-  const surnames = [...PARTICIPANT_SURNAMES];
-
-  for (let i = surnames.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [surnames[i], surnames[j]] = [surnames[j], surnames[i]];
-  }
-
-  return surnames
-    .slice(0, count)
-    .map(surname => `${surname}小姐`);
-}
-
-const EQUIPMENT_BLOCKERS = {
-  洋裝: ["外套"],
-  上衣: ["外套"],
-  胸罩: ["外套", "上衣", "洋裝"],
-  內褲: ["褲子", "褲襪"]
-};
-
-let roundBusy = false;
-let currentEquipmentDiscards = [];
-
-function element(tag, text, className) {
-  const node = document.createElement(tag);
-  if (text !== undefined) node.textContent = text;
-  if (className) node.className = className;
-  return node;
-}
-
-function cleanEquipment(items) {
-  return EQUIPMENT_TYPES.filter(
-    item => Array.isArray(items) && items.includes(item)
-  );
-}
-
-function ensureEquipment(participant) {
-  if (!Array.isArray(participant.initialEquipment)) {
-    participant.initialEquipment =
-      Array.isArray(participant.equipment)
-        ? cleanEquipment(participant.equipment)
-        : [...DEFAULT_EQUIPMENT];
-  }
-
-  participant.initialEquipment =
-    cleanEquipment(participant.initialEquipment);
-
-  participant.equipment =
-    Array.isArray(participant.equipment)
-      ? cleanEquipment(participant.equipment)
-      : [...participant.initialEquipment];
-
-  if (!Array.isArray(participant.equipmentHistory)) {
-    participant.equipmentHistory = [];
-  }
-
-  participant.pendingEquipmentLoss =
-    !!participant.pendingEquipmentLoss &&
-    participant.equipment.length > 0;
-
-  participant.pendingEquipmentDiscards =
-    Math.max(
-      0,
-      Number(participant.pendingEquipmentDiscards) || 0
-    );
-
-  if (!participant.pendingEquipmentLoss) {
-    participant.pendingEquipmentDiscards = 0;
-  }
-}
-
-function hasPendingEquipment() {
-  return participants.some(
-    participant => participant.pendingEquipmentLoss
-  );
-}
-
-function blockPendingEquipment() {
-  if (!hasPendingEquipment() && !roundBusy) {
-    return false;
-  }
-
-  alert("請先本回合拋棄衣物，再進行此操作");
-  return true;
-}
-
-function legalEquipment(participant) {
-  ensureEquipment(participant);
-
-  return participant.equipment.filter(item => {
-    const blockers = EQUIPMENT_BLOCKERS[item] || [];
-
-    return !blockers.some(
-      blocker => participant.equipment.includes(blocker)
-    );
-  });
-}
-
-function discardEquipment(participant, item) {
-  if (
-    !participant.pendingEquipmentLoss ||
-    !legalEquipment(participant).includes(item)
-  ) {
-    return null;
-  }
-
-  participant.equipment =
-    participant.equipment.filter(value => value !== item);
-
-  participant.pendingEquipmentDiscards++;
-
-  if (
-    gameConfig.equipmentRule !== "unlimited" ||
-    participant.equipment.length === 0
-  ) {
-    participant.pendingEquipmentLoss = false;
-    participant.pendingEquipmentDiscards = 0;
-  }
-
-  const record = {
-    participantId: participant.id,
-    participantKey: participant.participantKey,
-    participantName: participant.name,
-    equipment: item,
-    round: roundNumber,
-    timestamp: new Date().toISOString()
-  };
-
-  participant.equipmentHistory.push(record);
-  return record;
-}
-
-function handleEquipmentLoss(participant) {
-  ensureEquipment(participant);
-
-  if (participant.equipment.length === 0) {
-    return;
-  }
-
-  participant.pendingEquipmentLoss = true;
-  participant.pendingEquipmentDiscards = 0;
-
-  if (gameConfig.equipmentDiscardMode === "computer") {
-    do {
-      const options = legalEquipment(participant);
-
-      if (options.length === 0) break;
-
-      const item =
-        options[Math.floor(Math.random() * options.length)];
-
-      const record = discardEquipment(participant, item);
-
-      if (record) {
-        currentEquipmentDiscards.push(record);
-      }
-    } while (
-      gameConfig.equipmentRule === "unlimited" &&
-      participant.pendingEquipmentLoss
-    );
-
-    if (
-      gameConfig.equipmentRule === "unlimited" &&
-      participant.pendingEquipmentLoss &&
-      participant.equipment.length === 0
-    ) {
-      participant.pendingEquipmentLoss = false;
-      participant.pendingEquipmentDiscards = 0;
-    }
-  }
-}
-
-function renderEquipmentSettings(participant, card) {
-  ensureEquipment(participant);
-
-  const box = element("div", undefined, "inherit-box");
-  box.style.marginTop = "12px";
-
-  box.appendChild(element("strong", "個別衣物設定"));
-
-  box.appendChild(
-    element(
-      "div",
-      roundNumber > 0
-        ? "本回合已開始，起始衣物已鎖定。"
-        : "各參賽者可獨立勾選",
-      "small"
-    )
-  );
-
-  const options = element("div");
-
-  options.style.cssText =
-    "display:flex;flex-wrap:wrap;gap:12px;margin-top:8px";
-
-  EQUIPMENT_TYPES.forEach(item => {
-    const label =
-      element("label", undefined, "checkbox-setting");
-
-    const input = element("input");
-    input.type = "checkbox";
-    input.value = item;
-
-    input.checked =
-      participant.initialEquipment.includes(item);
-
-    input.disabled =
-      roundNumber > 0 ||
-      roundBusy ||
-      hasPendingEquipment();
-
-    input.addEventListener("change", () => {
-      const selected =
-        participant.initialEquipment.filter(
-          value => value !== item
-        );
-
-      if (input.checked) {
-        selected.push(item);
-      }
-
-      participant.initialEquipment =
-        cleanEquipment(selected);
-
-      participant.equipment =
-        [...participant.initialEquipment];
-
-      participant.equipmentHistory = [];
-
-      renderParticipantSettings();
-      renderStats();
-      saveCurrentTournamentRoundSnapshot();
-      void saveGameState();
-    });
-
-    label.append(
-      input,
-      document.createTextNode(" " + item)
-    );
-
-    options.appendChild(label);
-  });
-
-  box.appendChild(options);
-
-  box.appendChild(
-    element(
-      "div",
-      `剩餘衣物 ${participant.equipment.length}/${participant.initialEquipment.length}：${participant.equipment.join("、") || "無"}`,
-      "small"
-    )
-  );
-
-  card.appendChild(box);
-}
-
-function initializeEquipmentControls() {
-  const apply =
-    document.getElementById("applyEquipmentToAllBtn");
-
-  if (apply) {
-    apply.addEventListener("click", () => {
-      if (!participants.length) {
-        alert("請先建立遊戲。");
-        return;
-      }
-
-      if (blockPendingEquipment()) {
-        return;
-      }
-
-      if (roundNumber > 0) {
-        alert("起始衣物只能在本回合開始前設定。");
-        return;
-      }
-
-      const selected = cleanEquipment(
-        Array.from(
-          document.querySelectorAll(
-            ".global-equipment-checkbox:checked"
-          ),
-          input => input.value
-        )
-      );
-
-      participants.forEach(participant => {
-        participant.initialEquipment = [...selected];
-        participant.equipment = [...selected];
-        participant.equipmentHistory = [];
-        participant.pendingEquipmentLoss = false;
-      });
-
-      renderParticipantSettings();
-      renderStats();
-      saveCurrentTournamentRoundSnapshot();
-      void saveGameState();
-    });
-  }
-
-  document
-    .querySelectorAll('input[name="equipmentDiscardMode"]')
-    .forEach(input => {
-      input.addEventListener("change", () => {
-        if (input.checked) {
-          gameConfig.equipmentDiscardMode =
-            input.value === "computer"
-              ? "computer"
-              : "manual";
-
-          saveCurrentTournamentRoundSnapshot();
-          void saveGameState();
-        }
-      });
-    });
-}
-
-function renderEquipmentDiscardPanel() {
-  document
-    .getElementById("equipmentDiscardPanel")
-    ?.remove();
-
-  const pending = participants.filter(
-    participant => participant.pendingEquipmentLoss
-  );
-
-  const start =
-    document.getElementById("startRoundBtn");
-
-  if (start) {
-    start.disabled =
-      roundBusy || pending.length > 0;
-  }
-
-  if (!pending.length) {
-    return;
-  }
-
-  const panel = element("div", undefined, "inherit-box");
-  panel.id = "equipmentDiscardPanel";
-
-  panel.style.cssText =
-    "padding:16px;margin-top:16px;border:2px solid #b33;border-radius:10px";
-
-  panel.appendChild(
-    element(
-      "h3",
-      gameConfig.equipmentRule === "unlimited"
-        ? "落敗者請至少拋棄一件衣物，可繼續逐件拋棄"
-        : "請選擇落敗者需脫掉的衣物"
-    )
-  );
-
-  panel.appendChild(
-    element(
-      "div",
-      gameConfig.equipmentRule === "unlimited"
-        ? "每次拋棄後可依目前順序繼續選擇；至少拋棄一件後，按「完成拋棄」才能開始下一把。"
-        : "確認脫掉後，再進行下一把",
-      "small"
-    )
-  );
-
-  pending.forEach(participant => {
-    const box = element("div");
-    box.style.marginTop = "14px";
-    box.appendChild(element("strong", participant.name));
-
-    if (gameConfig.equipmentRule === "unlimited") {
-      box.appendChild(
-        element(
-          "div",
-          `已拋棄 ${participant.pendingEquipmentDiscards || 0} 件；尚有 ${participant.equipment.length} 件衣物。`,
-          "small"
-        )
-      );
-    }
-
-    const choices = element("div");
-
-    choices.style.cssText =
-      "display:flex;flex-wrap:wrap;gap:12px;margin:10px 0";
-
-    const legal = legalEquipment(participant);
-
-    participant.equipment.forEach(item => {
-      const label = element("label");
-      const input = element("input");
-
-      input.type = "radio";
-      input.name = "discard-" + participant.id;
-      input.value = item;
-      input.disabled = !legal.includes(item);
-
-      if (input.disabled) {
-        label.style.opacity = "0.45";
-
-        label.title =
-          "必須先拋棄：" +
-          (EQUIPMENT_BLOCKERS[item] || [])
-            .filter(
-              value => participant.equipment.includes(value)
-            )
-            .join("、");
-      }
-
-      label.append(
-        input,
-        document.createTextNode(" " + item)
-      );
-
-      choices.appendChild(label);
-    });
-
-    box.appendChild(choices);
-
-    const confirm = element("button", "請脫");
-    confirm.type = "button";
-    confirm.disabled = roundBusy;
-
-    confirm.addEventListener("click", async () => {
-      const selected =
-        choices.querySelector("input:checked");
-
-      if (!selected) {
-        alert("請選擇一件目前可合法拋棄的衣物。");
-        return;
-      }
-
-      const record =
-        discardEquipment(participant, selected.value);
-
-      if (!record) {
-        alert("這件衣物目前不能拋棄。");
-        return;
-      }
-
-      const history = roundHistory.findLast
-        ? roundHistory.findLast(
-            item => item.round === roundNumber
-          )
-        : [...roundHistory]
-            .reverse()
-            .find(item => item.round === roundNumber);
-
-      if (history) {
-        if (!Array.isArray(history.equipmentDiscards)) {
-          history.equipmentDiscards = [];
-        }
-
-        history.equipmentDiscards.push(record);
-      }
-
-      appendEquipmentDiscardMessage(record);
-
-      renderParticipantSettings();
-      renderOperationPanel();
-      renderStats();
-      renderEquipmentDiscardPanel();
-
-      saveCurrentTournamentRoundSnapshot();
-      await saveGameState();
-    });
-
-    box.appendChild(confirm);
-
-    if (gameConfig.equipmentRule === "unlimited") {
-      const finish = element("button", "完成拋棄");
-      finish.type = "button";
-      finish.style.marginLeft = "8px";
-      finish.disabled =
-        roundBusy ||
-        (participant.pendingEquipmentDiscards || 0) < 1;
-
-      finish.addEventListener("click", async () => {
-        if ((participant.pendingEquipmentDiscards || 0) < 1) {
-          alert("無限規則至少要拋棄一件衣物，才能完成。");
-          return;
-        }
-
-        participant.pendingEquipmentLoss = false;
-        participant.pendingEquipmentDiscards = 0;
-
-        renderParticipantSettings();
-        renderOperationPanel();
-        renderStats();
-        renderEquipmentDiscardPanel();
-
-        saveCurrentTournamentRoundSnapshot();
-        await saveGameState();
-      });
-
-      box.appendChild(finish);
-    }
-
-    panel.appendChild(box);
-  });
-
-  // 衣物選擇與出拳結果放在同一區。
-  resultPanel.classList.remove("hidden");
-  resultList.appendChild(panel);
-}
-
-function appendEquipmentDiscardMessage(record) {
-  resultPanel.classList.remove("hidden");
-
-  resultList.appendChild(
-    element(
-      "div",
-      `${record.participantName} 拋棄：${record.equipment}`,
-      "small"
-    )
-  );
-}
-
-// ============================================================
 // 共用統計表
 // ============================================================
 
@@ -822,6 +284,12 @@ const nextRoundSettingsPanel =
 const nextRoundNameInput =
   document.getElementById("nextRoundName");
 
+const createNewParticipantsInput =
+  document.getElementById("createNewParticipants");
+
+const importExistingParticipantsInput =
+  document.getElementById("importExistingParticipants");
+
 const newParticipantSettings =
   document.getElementById("newParticipantSettings");
 
@@ -987,14 +455,17 @@ if (nextEliminationModeInput) {
   );
 }
 
-document
-  .querySelectorAll('input[name="participantSourceMode"]')
-  .forEach(function (radio) {
-    radio.addEventListener(
+[
+  createNewParticipantsInput,
+  importExistingParticipantsInput
+].forEach(function (input) {
+  if (input) {
+    input.addEventListener(
       "change",
       updateParticipantSourceMode
     );
-  });
+  }
+});
 
 function updateEliminationSettingsVisibility() {
   const enabled =
@@ -3210,23 +2681,23 @@ function syncTournamentRoundToInterface() {
 // ============================================================
 
 function updateParticipantSourceMode() {
-  const selected = document.querySelector(
-    'input[name="participantSourceMode"]:checked'
-  );
+  const createNew =
+    !!createNewParticipantsInput?.checked;
 
-  const mode = selected ? selected.value : "new";
+  const importExisting =
+    !!importExistingParticipantsInput?.checked;
 
   if (newParticipantSettings) {
     newParticipantSettings.classList.toggle(
       "hidden",
-      mode !== "new"
+      !createNew
     );
   }
 
   if (inheritParticipantSettings) {
     inheritParticipantSettings.classList.toggle(
       "hidden",
-      mode !== "inherit"
+      !importExisting
     );
   }
 }
@@ -3403,13 +2874,13 @@ function openNextTournamentRoundSettings() {
     nextRoundNameInput.value = "";
   }
 
-  const newModeRadio = document.querySelector(
-    'input[name="participantSourceMode"][value="new"]'
-  );
+if (createNewParticipantsInput) {
+  createNewParticipantsInput.checked = true;
+}
 
-  if (newModeRadio) {
-    newModeRadio.checked = true;
-  }
+if (importExistingParticipantsInput) {
+  importExistingParticipantsInput.checked = false;
+}
 
   if (nextPlayerCountInput) {
     nextPlayerCountInput.value =
@@ -3516,14 +2987,16 @@ async function createNextTournamentRound() {
     return;
   }
 
-  const selectedModeRadio = document.querySelector(
-    'input[name="participantSourceMode"]:checked'
-  );
+const createNew =
+  !!createNewParticipantsInput?.checked;
 
-  const participantSourceMode =
-    selectedModeRadio
-      ? selectedModeRadio.value
-      : "new";
+const importExisting =
+  !!importExistingParticipantsInput?.checked;
+
+if (!createNew && !importExisting) {
+  alert("請至少選擇一種參賽者來源。");
+  return;
+}
 
   const maxRoundNumber = tournamentRounds.reduce(
     function (max, item) {
@@ -3543,182 +3016,143 @@ async function createNextTournamentRound() {
       ? nextRoundNameInput.value.trim()
       : "";
 
-  let newParticipants = [];
+let newParticipants = [];
 
-  if (participantSourceMode === "new") {
-    let nextPlayerCount = parseInt(
-      nextPlayerCountInput
-        ? nextPlayerCountInput.value
-        : 2,
-      10
+// 建立全新參賽者
+if (createNew) {
+  let nextPlayerCount = parseInt(
+    nextPlayerCountInput
+      ? nextPlayerCountInput.value
+      : 2,
+    10
+  );
+
+  const minimumNewCount = importExisting ? 1 : 2;
+
+  if (
+    Number.isNaN(nextPlayerCount) ||
+    nextPlayerCount < minimumNewCount ||
+    nextPlayerCount > 64
+  ) {
+    alert(
+      importExisting
+        ? "新參賽者人數必須為 1～64 人。"
+        : "新回合參賽人數必須為 2～64 人。"
+    );
+    return;
+  }
+
+  const randomNames =
+    createRandomParticipantNames(nextPlayerCount);
+
+  for (let i = 0; i < nextPlayerCount; i++) {
+    newParticipants.push({
+      id: i + 1,
+      participantKey: createParticipantKey(),
+      name: randomNames[i],
+      avatar: "",
+      teamId: null,
+      controlled: false,
+      winRate: 33,
+      wins: 0,
+      losses: 0,
+      ties: 0,
+      eliminated: false
+    });
+  }
+}
+
+// 導入既有回合的參賽者
+if (importExisting) {
+  const selectedCheckboxes = Array.from(
+    document.querySelectorAll(
+      ".source-participant-checkbox:checked"
+    )
+  );
+
+  if (selectedCheckboxes.length === 0) {
+    alert("請至少選擇一名參賽者。");
+    return;
+  }
+
+  const inheritStats =
+    inheritStatsInput
+      ? !!inheritStatsInput.checked
+      : false;
+
+  const participantMap = new Map();
+
+  selectedCheckboxes.forEach(function (checkbox) {
+    const sourceRoundNumber =
+      Number(checkbox.dataset.round);
+
+    const sourceParticipantKey =
+      checkbox.dataset.participantKey;
+
+    const sourceParticipantId =
+      Number(checkbox.dataset.participantId);
+
+    const sourceRound = tournamentRounds.find(
+      function (item) {
+        return (
+          item.tournamentRoundNumber ===
+          sourceRoundNumber
+        );
+      }
     );
 
-    if (
-      Number.isNaN(nextPlayerCount) ||
-      nextPlayerCount < 2 ||
-      nextPlayerCount > 64
-    ) {
-      alert("新回合參賽人數必須為 2～64 人。");
-      return;
+    if (!sourceRound) return;
+
+    ensureParticipantKeys(sourceRound.participants);
+
+    let sourceParticipant = null;
+
+    if (sourceParticipantKey) {
+      sourceParticipant =
+        sourceRound.participants.find(
+          function (participant) {
+            return (
+              participant.participantKey ===
+              sourceParticipantKey
+            );
+          }
+        );
     }
 
-const randomNames = createRandomParticipantNames(nextPlayerCount);
+    if (!sourceParticipant) {
+      sourceParticipant =
+        sourceRound.participants.find(
+          function (participant) {
+            return (
+              Number(participant.id) ===
+              sourceParticipantId
+            );
+          }
+        );
+    }
 
-    for (let i = 0; i < nextPlayerCount; i++) {
-      newParticipants.push({
-        id: i + 1,
-        participantKey: createParticipantKey(),
-        name: randomNames[i],
-        avatar: "",
+    if (!sourceParticipant) return;
+
+    if (!sourceParticipant.participantKey) {
+      sourceParticipant.participantKey =
+        createParticipantKey();
+    }
+
+    const permanentKey =
+      sourceParticipant.participantKey;
+
+    let target =
+      participantMap.get(permanentKey);
+
+    if (!target) {
+      target = {
+        participantKey: permanentKey,
+        name: sourceParticipant.name,
+        avatar: sourceParticipant.avatar || "",
         teamId: null,
-        controlled: false,
-        winRate: 33,
-        wins: 0,
-        losses: 0,
-        ties: 0,
-        eliminated: false
-      });
-    }
-  } else if (participantSourceMode === "inherit") {
-    const selectedCheckboxes = Array.from(
-      document.querySelectorAll(
-        ".source-participant-checkbox:checked"
-      )
-    );
+        controlled: !!sourceParticipant.controlled,
 
-    if (selectedCheckboxes.length === 0) {
-      alert("請至少選擇一名參賽者。");
-      return;
-    }
-
-    const inheritStats =
-      inheritStatsInput
-        ? !!inheritStatsInput.checked
-        : false;
-
-    const participantMap = new Map();
-
-    selectedCheckboxes.forEach(function (checkbox) {
-      const sourceRoundNumber =
-        Number(checkbox.dataset.round);
-
-      const sourceParticipantKey =
-        checkbox.dataset.participantKey;
-
-      const sourceParticipantId =
-        Number(checkbox.dataset.participantId);
-
-      const sourceRound = tournamentRounds.find(
-        function (item) {
-          return (
-            item.tournamentRoundNumber ===
-            sourceRoundNumber
-          );
-        }
-      );
-
-      if (!sourceRound) return;
-
-      ensureParticipantKeys(
-        sourceRound.participants
-      );
-
-      let sourceParticipant = null;
-
-      if (sourceParticipantKey) {
-        sourceParticipant =
-          sourceRound.participants.find(
-            function (participant) {
-              return (
-                participant.participantKey ===
-                sourceParticipantKey
-              );
-            }
-          );
-      }
-
-      if (!sourceParticipant) {
-        sourceParticipant =
-          sourceRound.participants.find(
-            function (participant) {
-              return (
-                Number(participant.id) ===
-                sourceParticipantId
-              );
-            }
-          );
-      }
-
-      if (!sourceParticipant) return;
-
-      if (!sourceParticipant.participantKey) {
-        sourceParticipant.participantKey =
-          createParticipantKey();
-      }
-
-      const permanentKey =
-        sourceParticipant.participantKey;
-
-      let target =
-        participantMap.get(permanentKey);
-
-      if (!target) {
-        target = {
-          participantKey: permanentKey,
-          name: sourceParticipant.name,
-          avatar: sourceParticipant.avatar || "",
-          teamId: null,
-          controlled: !!sourceParticipant.controlled,
-
-          winRate:
-            Number.isFinite(
-              Number(sourceParticipant.winRate)
-            )
-              ? Math.max(
-                  0,
-                  Math.min(
-                    100,
-                    Number(sourceParticipant.winRate)
-                  )
-                )
-              : 33,
-
-          wins: 0,
-          losses: 0,
-          ties: 0,
-          eliminated: false,
-          _latestSourceRound: sourceRoundNumber,
-          _statsSourceRound: null
-        };
-
-        participantMap.set(permanentKey, target);
-      }
-
-      if (
-        target._latestSourceRound == null ||
-        sourceRoundNumber >= target._latestSourceRound
-      ) {
-        ensureEquipment(sourceParticipant);
-
-        target.initialEquipment =
-          [...sourceParticipant.initialEquipment];
-
-        target.equipment =
-          [...target.initialEquipment];
-
-        target.equipmentHistory = [];
-        target.pendingEquipmentLoss = false;
-
-        target.name =
-          sourceParticipant.name;
-
-        target.avatar =
-          sourceParticipant.avatar || "";
-
-        target.controlled =
-          !!sourceParticipant.controlled;
-
-        target.winRate =
+        winRate:
           Number.isFinite(
             Number(sourceParticipant.winRate)
           )
@@ -3729,59 +3163,108 @@ const randomNames = createRandomParticipantNames(nextPlayerCount);
                   Number(sourceParticipant.winRate)
                 )
               )
-            : 33;
+            : 33,
 
-        target._latestSourceRound =
+        wins: 0,
+        losses: 0,
+        ties: 0,
+        eliminated: false,
+        _latestSourceRound: sourceRoundNumber,
+        _statsSourceRound: null
+      };
+
+      participantMap.set(permanentKey, target);
+    }
+
+    if (
+      target._latestSourceRound == null ||
+      sourceRoundNumber >= target._latestSourceRound
+    ) {
+      ensureEquipment(sourceParticipant);
+
+      target.initialEquipment =
+        [...sourceParticipant.initialEquipment];
+
+      target.equipment =
+        [...target.initialEquipment];
+
+      target.equipmentHistory = [];
+      target.pendingEquipmentLoss = false;
+
+      target.name =
+        sourceParticipant.name;
+
+      target.avatar =
+        sourceParticipant.avatar || "";
+
+      target.controlled =
+        !!sourceParticipant.controlled;
+
+      target.winRate =
+        Number.isFinite(
+          Number(sourceParticipant.winRate)
+        )
+          ? Math.max(
+              0,
+              Math.min(
+                100,
+                Number(sourceParticipant.winRate)
+              )
+            )
+          : 33;
+
+      target._latestSourceRound =
+        sourceRoundNumber;
+    }
+
+    if (inheritStats) {
+      if (
+        target._statsSourceRound == null ||
+        sourceRoundNumber > target._statsSourceRound
+      ) {
+        target.wins =
+          Number(sourceParticipant.wins) || 0;
+
+        target.losses =
+          Number(sourceParticipant.losses) || 0;
+
+        target.ties =
+          Number(sourceParticipant.ties) || 0;
+
+        target._statsSourceRound =
           sourceRoundNumber;
       }
-
-      if (inheritStats) {
-        if (
-          target._statsSourceRound == null ||
-          sourceRoundNumber > target._statsSourceRound
-        ) {
-          target.wins =
-            Number(sourceParticipant.wins) || 0;
-
-          target.losses =
-            Number(sourceParticipant.losses) || 0;
-
-          target.ties =
-            Number(sourceParticipant.ties) || 0;
-
-          target._statsSourceRound =
-            sourceRoundNumber;
-        }
-      }
-    });
-
-    newParticipants =
-      Array.from(participantMap.values());
-
-    if (newParticipants.length < 2) {
-      alert("新回合至少需要 2 名不同參賽者。");
-      return;
     }
+  });
 
-    if (newParticipants.length > 64) {
-      alert("新回合參賽人數不能超過 64 人。");
-      return;
+  // 把導入的人加入新人名單
+  newParticipants.push(
+    ...Array.from(participantMap.values())
+  );
+
+  // 重新編號並清除上一回合的淘汰狀態
+  newParticipants.forEach(
+    function (participant, index) {
+      participant.id = index + 1;
+      participant.teamId = null;
+      participant.eliminated = false;
+
+      delete participant._latestSourceRound;
+      delete participant._statsSourceRound;
     }
+  );
+}
 
-    newParticipants.forEach(
-      function (participant, index) {
-        participant.id = index + 1;
-        participant.teamId = null;
-        participant.eliminated = false;
+// 檢查合併後的總人數
+if (newParticipants.length < 2) {
+  alert("新回合至少需要 2 名不同參賽者。");
+  return;
+}
 
-        delete participant._latestSourceRound;
-        delete participant._statsSourceRound;
-      }
-    );
-  } else {
-    alert("無法判斷新回合的參賽者建立方式。");
-    return;
-  }
+if (newParticipants.length > 64) {
+  alert("新回合參賽人數不能超過 64 人。");
+  return;
+}
 
   const useTeamMode =
     nextTeamModeInput
@@ -4264,6 +3747,545 @@ function getEliminationStatusText(item) {
 
   return "淘汰！";
 }
+
+// ============================================================
+// Gamma 衣物系統
+// ============================================================
+
+const EQUIPMENT_TYPES = [
+  "外套", "洋裝", "上衣", "裙子",
+  "褲子", "褲襪", "胸罩", "內褲"
+];
+
+const DEFAULT_EQUIPMENT = [
+  "上衣", "裙子", "胸罩", "內褲"
+];
+
+const PARTICIPANT_SURNAMES = [
+  "陳", "林", "黃", "張", "王", "吳", "劉", "蔡",
+  "楊", "許", "鄭", "謝", "洪", "郭", "邱", "曾",
+  "廖", "賴", "徐", "周", "葉", "蘇", "莊", "呂",
+  "江", "何", "蕭", "羅", "高", "潘", "簡", "朱",
+  "鍾", "游", "彭", "詹", "胡", "施", "沈", "余",
+  "盧", "梁", "趙", "顏", "柯", "翁", "魏", "孫",
+  "戴", "范", "方", "宋", "鄧", "杜", "傅", "侯",
+  "曹", "薛", "丁", "張簡", "陳", "林", "黃", "張"
+];
+
+function createRandomParticipantNames(count) {
+  const surnames = [...PARTICIPANT_SURNAMES];
+
+  for (let i = surnames.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [surnames[i], surnames[j]] = [surnames[j], surnames[i]];
+  }
+
+  return surnames
+    .slice(0, count)
+    .map(surname => `${surname}小姐`);
+}
+
+const EQUIPMENT_BLOCKERS = {
+  洋裝: ["外套"],
+  上衣: ["外套"],
+  胸罩: ["外套", "上衣", "洋裝"],
+  內褲: ["褲子", "褲襪"]
+};
+
+let roundBusy = false;
+let currentEquipmentDiscards = [];
+
+function element(tag, text, className) {
+  const node = document.createElement(tag);
+  if (text !== undefined) node.textContent = text;
+  if (className) node.className = className;
+  return node;
+}
+
+function cleanEquipment(items) {
+  return EQUIPMENT_TYPES.filter(
+    item => Array.isArray(items) && items.includes(item)
+  );
+}
+
+function ensureEquipment(participant) {
+  if (!Array.isArray(participant.initialEquipment)) {
+    participant.initialEquipment =
+      Array.isArray(participant.equipment)
+        ? cleanEquipment(participant.equipment)
+        : [...DEFAULT_EQUIPMENT];
+  }
+
+  participant.initialEquipment =
+    cleanEquipment(participant.initialEquipment);
+
+  participant.equipment =
+    Array.isArray(participant.equipment)
+      ? cleanEquipment(participant.equipment)
+      : [...participant.initialEquipment];
+
+  if (!Array.isArray(participant.equipmentHistory)) {
+    participant.equipmentHistory = [];
+  }
+
+  participant.pendingEquipmentLoss =
+    !!participant.pendingEquipmentLoss &&
+    participant.equipment.length > 0;
+
+  participant.pendingEquipmentDiscards =
+    Math.max(
+      0,
+      Number(participant.pendingEquipmentDiscards) || 0
+    );
+
+  if (!participant.pendingEquipmentLoss) {
+    participant.pendingEquipmentDiscards = 0;
+  }
+}
+
+function hasPendingEquipment() {
+  return participants.some(
+    participant => participant.pendingEquipmentLoss
+  );
+}
+
+function blockPendingEquipment() {
+  if (!hasPendingEquipment() && !roundBusy) {
+    return false;
+  }
+
+  alert("請先本回合拋棄衣物，再進行此操作");
+  return true;
+}
+
+function legalEquipment(participant) {
+  ensureEquipment(participant);
+
+  return participant.equipment.filter(item => {
+    const blockers = EQUIPMENT_BLOCKERS[item] || [];
+
+    return !blockers.some(
+      blocker => participant.equipment.includes(blocker)
+    );
+  });
+}
+
+function discardEquipment(participant, item) {
+  if (
+    !participant.pendingEquipmentLoss ||
+    !legalEquipment(participant).includes(item)
+  ) {
+    return null;
+  }
+
+  participant.equipment =
+    participant.equipment.filter(value => value !== item);
+
+  participant.pendingEquipmentDiscards++;
+
+  if (
+    gameConfig.equipmentRule !== "unlimited" ||
+    participant.equipment.length === 0
+  ) {
+    participant.pendingEquipmentLoss = false;
+    participant.pendingEquipmentDiscards = 0;
+  }
+
+  const record = {
+    participantId: participant.id,
+    participantKey: participant.participantKey,
+    participantName: participant.name,
+    equipment: item,
+    round: roundNumber,
+    timestamp: new Date().toISOString()
+  };
+
+  participant.equipmentHistory.push(record);
+  return record;
+}
+
+function handleEquipmentLoss(participant) {
+  ensureEquipment(participant);
+
+  if (participant.equipment.length === 0) {
+    return;
+  }
+
+  participant.pendingEquipmentLoss = true;
+  participant.pendingEquipmentDiscards = 0;
+
+  if (gameConfig.equipmentDiscardMode === "computer") {
+    do {
+      const options = legalEquipment(participant);
+
+      if (options.length === 0) break;
+
+      const item =
+        options[Math.floor(Math.random() * options.length)];
+
+      const record = discardEquipment(participant, item);
+
+      if (record) {
+        currentEquipmentDiscards.push(record);
+      }
+    } while (
+      gameConfig.equipmentRule === "unlimited" &&
+      participant.pendingEquipmentLoss
+    );
+
+    if (
+      gameConfig.equipmentRule === "unlimited" &&
+      participant.pendingEquipmentLoss &&
+      participant.equipment.length === 0
+    ) {
+      participant.pendingEquipmentLoss = false;
+      participant.pendingEquipmentDiscards = 0;
+    }
+  }
+}
+
+function renderEquipmentSettings(participant, card) {
+  ensureEquipment(participant);
+
+  const box = element("div", undefined, "inherit-box");
+  box.style.marginTop = "12px";
+
+  box.appendChild(element("strong", "個別衣物設定"));
+
+  box.appendChild(
+    element(
+      "div",
+      roundNumber > 0
+        ? "本回合已開始，起始衣物已鎖定。"
+        : "各參賽者可獨立勾選",
+      "small"
+    )
+  );
+
+  const options = element("div");
+
+  options.style.cssText =
+    "display:flex;flex-wrap:wrap;gap:12px;margin-top:8px";
+
+  EQUIPMENT_TYPES.forEach(item => {
+    const label =
+      element("label", undefined, "checkbox-setting");
+
+    const input = element("input");
+    input.type = "checkbox";
+    input.value = item;
+
+    input.checked =
+      participant.initialEquipment.includes(item);
+
+    input.disabled =
+      roundNumber > 0 ||
+      roundBusy ||
+      hasPendingEquipment();
+
+    input.addEventListener("change", () => {
+      const selected =
+        participant.initialEquipment.filter(
+          value => value !== item
+        );
+
+      if (input.checked) {
+        selected.push(item);
+      }
+
+      participant.initialEquipment =
+        cleanEquipment(selected);
+
+      participant.equipment =
+        [...participant.initialEquipment];
+
+      participant.equipmentHistory = [];
+
+      renderParticipantSettings();
+      renderStats();
+      saveCurrentTournamentRoundSnapshot();
+      void saveGameState();
+    });
+
+    label.append(
+      input,
+      document.createTextNode(" " + item)
+    );
+
+    options.appendChild(label);
+  });
+
+  box.appendChild(options);
+
+  box.appendChild(
+    element(
+      "div",
+      `剩餘衣物 ${participant.equipment.length}/${participant.initialEquipment.length}：${participant.equipment.join("、") || "無"}`,
+      "small"
+    )
+  );
+
+  card.appendChild(box);
+}
+
+function initializeEquipmentControls() {
+  const apply =
+    document.getElementById("applyEquipmentToAllBtn");
+
+  if (apply) {
+    apply.addEventListener("click", () => {
+      if (!participants.length) {
+        alert("請先建立遊戲。");
+        return;
+      }
+
+      if (blockPendingEquipment()) {
+        return;
+      }
+
+      if (roundNumber > 0) {
+        alert("起始衣物只能在本回合開始前設定。");
+        return;
+      }
+
+      const selected = cleanEquipment(
+        Array.from(
+          document.querySelectorAll(
+            ".global-equipment-checkbox:checked"
+          ),
+          input => input.value
+        )
+      );
+
+      participants.forEach(participant => {
+        participant.initialEquipment = [...selected];
+        participant.equipment = [...selected];
+        participant.equipmentHistory = [];
+        participant.pendingEquipmentLoss = false;
+      });
+
+      renderParticipantSettings();
+      renderStats();
+      saveCurrentTournamentRoundSnapshot();
+      void saveGameState();
+    });
+  }
+
+  document
+    .querySelectorAll('input[name="equipmentDiscardMode"]')
+    .forEach(input => {
+      input.addEventListener("change", () => {
+        if (input.checked) {
+          gameConfig.equipmentDiscardMode =
+            input.value === "computer"
+              ? "computer"
+              : "manual";
+
+          saveCurrentTournamentRoundSnapshot();
+          void saveGameState();
+        }
+      });
+    });
+}
+
+function renderEquipmentDiscardPanel() {
+  document
+    .getElementById("equipmentDiscardPanel")
+    ?.remove();
+
+  const pending = participants.filter(
+    participant => participant.pendingEquipmentLoss
+  );
+
+  const start =
+    document.getElementById("startRoundBtn");
+
+  if (start) {
+    start.disabled =
+      roundBusy || pending.length > 0;
+  }
+
+  if (!pending.length) {
+    return;
+  }
+
+  const panel = element("div", undefined, "inherit-box");
+  panel.id = "equipmentDiscardPanel";
+
+  panel.style.cssText =
+    "padding:16px;margin-top:16px;border:2px solid #b33;border-radius:10px";
+
+  panel.appendChild(
+    element(
+      "h3",
+      gameConfig.equipmentRule === "unlimited"
+        ? "落敗者請至少拋棄一件衣物，可繼續逐件拋棄"
+        : "請選擇落敗者需脫掉的衣物"
+    )
+  );
+
+  panel.appendChild(
+    element(
+      "div",
+      gameConfig.equipmentRule === "unlimited"
+        ? "每次拋棄後可依目前順序繼續選擇；至少拋棄一件後，按「完成拋棄」才能開始下一把。"
+        : "確認脫掉後，再進行下一把",
+      "small"
+    )
+  );
+
+  pending.forEach(participant => {
+    const box = element("div");
+    box.style.marginTop = "14px";
+    box.appendChild(element("strong", participant.name));
+
+    if (gameConfig.equipmentRule === "unlimited") {
+      box.appendChild(
+        element(
+          "div",
+          `已拋棄 ${participant.pendingEquipmentDiscards || 0} 件；尚有 ${participant.equipment.length} 件衣物。`,
+          "small"
+        )
+      );
+    }
+
+    const choices = element("div");
+
+    choices.style.cssText =
+      "display:flex;flex-wrap:wrap;gap:12px;margin:10px 0";
+
+    const legal = legalEquipment(participant);
+
+    participant.equipment.forEach(item => {
+      const label = element("label");
+      const input = element("input");
+
+      input.type = "radio";
+      input.name = "discard-" + participant.id;
+      input.value = item;
+      input.disabled = !legal.includes(item);
+
+      if (input.disabled) {
+        label.style.opacity = "0.45";
+
+        label.title =
+          "必須先拋棄：" +
+          (EQUIPMENT_BLOCKERS[item] || [])
+            .filter(
+              value => participant.equipment.includes(value)
+            )
+            .join("、");
+      }
+
+      label.append(
+        input,
+        document.createTextNode(" " + item)
+      );
+
+      choices.appendChild(label);
+    });
+
+    box.appendChild(choices);
+
+    const confirm = element("button", "請脫");
+    confirm.type = "button";
+    confirm.disabled = roundBusy;
+
+    confirm.addEventListener("click", async () => {
+      const selected =
+        choices.querySelector("input:checked");
+
+      if (!selected) {
+        alert("請選擇一件目前可合法拋棄的衣物。");
+        return;
+      }
+
+      const record =
+        discardEquipment(participant, selected.value);
+
+      if (!record) {
+        alert("這件衣物目前不能拋棄。");
+        return;
+      }
+
+      const history = roundHistory.findLast
+        ? roundHistory.findLast(
+            item => item.round === roundNumber
+          )
+        : [...roundHistory]
+            .reverse()
+            .find(item => item.round === roundNumber);
+
+      if (history) {
+        if (!Array.isArray(history.equipmentDiscards)) {
+          history.equipmentDiscards = [];
+        }
+
+        history.equipmentDiscards.push(record);
+      }
+
+      appendEquipmentDiscardMessage(record);
+
+      renderParticipantSettings();
+      renderOperationPanel();
+      renderStats();
+      renderEquipmentDiscardPanel();
+
+      saveCurrentTournamentRoundSnapshot();
+      await saveGameState();
+    });
+
+    box.appendChild(confirm);
+
+    if (gameConfig.equipmentRule === "unlimited") {
+      const finish = element("button", "完成拋棄");
+      finish.type = "button";
+      finish.style.marginLeft = "8px";
+      finish.disabled =
+        roundBusy ||
+        (participant.pendingEquipmentDiscards || 0) < 1;
+
+      finish.addEventListener("click", async () => {
+        if ((participant.pendingEquipmentDiscards || 0) < 1) {
+          alert("無限規則至少要拋棄一件衣物，才能完成。");
+          return;
+        }
+
+        participant.pendingEquipmentLoss = false;
+        participant.pendingEquipmentDiscards = 0;
+
+        renderParticipantSettings();
+        renderOperationPanel();
+        renderStats();
+        renderEquipmentDiscardPanel();
+
+        saveCurrentTournamentRoundSnapshot();
+        await saveGameState();
+      });
+
+      box.appendChild(finish);
+    }
+
+    panel.appendChild(box);
+  });
+
+  // 衣物選擇與出拳結果放在同一區。
+  resultPanel.classList.remove("hidden");
+  resultList.appendChild(panel);
+}
+
+function appendEquipmentDiscardMessage(record) {
+  resultPanel.classList.remove("hidden");
+
+  resultList.appendChild(
+    element(
+      "div",
+      `${record.participantName} 拋棄：${record.equipment}`,
+      "small"
+    )
+  );
+}
+
 
 // ============================================================
 // 啟用 Gamma 衣物設定
