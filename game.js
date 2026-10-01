@@ -3341,7 +3341,7 @@ function addSourceRoundSelector(
         let text = ` ${participant.name}`;
 
         if (participant.eliminated) {
-          text += "（淘汰）";
+          text += "（淘汰！）";
         }
 
         participantLabel.appendChild(
@@ -4235,7 +4235,7 @@ function getEliminationStatusText(item) {
     return `淘汰！處罰：${penalty}`;
   }
 
-  return "淘汰";
+  return "淘汰！";
 }
 
 // ============================================================
