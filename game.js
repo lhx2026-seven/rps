@@ -3504,9 +3504,10 @@ function addStartButton() {
     start = element("button", "START！");
     start.type = "button";
     start.id = "startRoundBtn";
-    start.addEventListener("click", startRound);
   }
 
+  start.textContent = "START！";
+  start.onclick = startRound;
   start.disabled =
     roundBusy || hasPendingEquipment();
 
