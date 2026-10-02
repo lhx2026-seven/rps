@@ -76,7 +76,7 @@ function renderStatsTable(
       status += "；全裸";
     } else if (
       isParticipant && item.pendingEquipmentLoss) {
-      status += "；待拋棄衣物";
+      status += "；剩餘衣物";
     }
 
     cells.push(status);
@@ -1227,10 +1227,22 @@ function renderTeamOperation() {
 // ============================================================
 
 async function startRound() {
-  if (roundBusy || hasPendingEquipment()) {
-    alert("請先完成本回合的衣物拋棄。");
-    return;
-  }
+if (roundBusy) return;
+
+if (hasPendingEquipment()) {
+  alert("確認脫掉後，才可再進行下一把。");
+  return;
+}
+
+if (
+  roundNumber > 0 &&
+  !window.confirm(
+    `目前已完成 ${roundNumber} 次出拳，確定開始下一次出拳？\n\n` +
+    "本回合成績會繼續累積。"
+  )
+) {
+  return;
+}
 
   roundBusy = true;
   currentEquipmentDiscards = [];
@@ -2883,8 +2895,8 @@ if (importExistingParticipantsInput) {
 }
 
   if (nextPlayerCountInput) {
-    nextPlayerCountInput.value =
-      Math.max(2, Math.min(64, participants.length));
+    nextPlayerCountInput.value = 1
+      Math.max(1, Math.min(64, participants.length));
   }
 
   if (sourceRoundList) {
@@ -3037,7 +3049,7 @@ if (createNew) {
     alert(
       importExisting
         ? "新參賽者人數必須為 1～64 人。"
-        : "新回合參賽人數必須為 2～64 人。"
+        : "新回合參賽人數必須為 1～64 人。"
     );
     return;
   }
@@ -3182,11 +3194,13 @@ if (importExisting) {
     ) {
       ensureEquipment(sourceParticipant);
 
-      target.initialEquipment =
-        [...sourceParticipant.initialEquipment];
+target.initialEquipment =
+  [...sourceParticipant.initialEquipment];
 
-      target.equipment =
-        [...target.initialEquipment];
+target.equipment =
+  Array.isArray(sourceParticipant.equipment)
+    ? [...sourceParticipant.equipment]
+    : [...target.initialEquipment];
 
       target.equipmentHistory = [];
       target.pendingEquipmentLoss = false;
@@ -3501,9 +3515,19 @@ function addStartButton() {
   reset.disabled = roundBusy;
   reset.style.marginLeft = "8px";
 
-  reset.addEventListener("click", resetCurrentRound);
+reset.addEventListener("click", resetCurrentRound);
 
-  operationPanel.append(start, reset);
+const deleteButton = element("button", "刪除本回合");
+deleteButton.type = "button";
+deleteButton.id = "deleteCurrentRoundBtn";
+deleteButton.disabled = roundBusy;
+deleteButton.style.marginLeft = "8px";
+deleteButton.addEventListener(
+  "click",
+  deleteCurrentTournamentRound
+);
+
+operationPanel.append(start, reset, deleteButton);
 }
 
 async function resetCurrentRound() {
@@ -3562,6 +3586,78 @@ async function resetCurrentRound() {
     renderOperationPanel();
     renderStats();
     renderTournamentRoundTabs();
+  }
+}
+async function deleteCurrentTournamentRound() {
+  if (roundBusy || !participants.length) return;
+  if (blockPendingEquipment()) return;
+
+  const latestRoundNumber = tournamentRounds.reduce(
+    function (max, item) {
+      return Math.max(
+        max,
+        Number(item.tournamentRoundNumber) || 0
+      );
+    },
+    0
+  );
+
+  if (Number(tournamentRoundNumber) !== latestRoundNumber) {
+    alert("目前只能刪除最新回合。");
+    return;
+  }
+
+  if (tournamentRounds.length < 2) {
+    alert("目前只有一個回合，無法刪除。");
+    return;
+  }
+
+  const currentRound = getCurrentTournamentRound();
+  const currentRoundName =
+    getTournamentRoundDisplayName(currentRound);
+
+  if (
+    !window.confirm(
+      `確定刪除「${currentRoundName}」？\n\n` +
+      "刪除後會回到前一回合，這個操作無法復原。"
+    )
+  ) {
+    return;
+  }
+
+  tournamentRounds = tournamentRounds.filter(
+    function (item) {
+      return (
+        Number(item.tournamentRoundNumber) !==
+        Number(tournamentRoundNumber)
+      );
+    }
+  );
+
+  const previousRound = tournamentRounds.reduce(
+    function (latest, item) {
+      if (
+        !latest ||
+        Number(item.tournamentRoundNumber) >
+          Number(latest.tournamentRoundNumber)
+      ) {
+        return item;
+      }
+
+      return latest;
+    },
+    null
+  );
+
+  participants = [];
+  currentEquipmentDiscards = [];
+
+  switchTournamentRound(
+    previousRound.tournamentRoundNumber
+  );
+
+  if (gameConfig.saveResults) {
+    await saveGameState();
   }
 }
 
@@ -3854,7 +3950,7 @@ function blockPendingEquipment() {
     return false;
   }
 
-  alert("請先本回合拋棄衣物，再進行此操作");
+  alert("請先脫，再進行此操作");
   return true;
 }
 
@@ -4129,7 +4225,7 @@ function renderEquipmentDiscardPanel() {
       "div",
       gameConfig.equipmentRule === "unlimited"
         ? "每次拋棄後可依目前順序繼續選擇；至少拋棄一件後，按「完成拋棄」才能開始下一把。"
-        : "確認脫掉後，再進行下一把",
+        : "確認脫掉後，才可再進行下一把。",
       "small"
     )
   );
@@ -4143,7 +4239,7 @@ function renderEquipmentDiscardPanel() {
       box.appendChild(
         element(
           "div",
-          `已拋棄 ${participant.pendingEquipmentDiscards || 0} 件；尚有 ${participant.equipment.length} 件衣物。`,
+          `已脫 ${participant.pendingEquipmentDiscards || 0} 件；尚有 ${participant.equipment.length} 件衣物。`,
           "small"
         )
       );
@@ -4196,7 +4292,7 @@ function renderEquipmentDiscardPanel() {
         choices.querySelector("input:checked");
 
       if (!selected) {
-        alert("請選擇一件目前可合法拋棄的衣物。");
+        alert("請選擇目前物理上可脫的衣物。");
         return;
       }
 
@@ -4204,7 +4300,7 @@ function renderEquipmentDiscardPanel() {
         discardEquipment(participant, selected.value);
 
       if (!record) {
-        alert("這件衣物目前不能拋棄。");
+        alert("目前無法脫這件。");
         return;
       }
 
@@ -4238,7 +4334,7 @@ function renderEquipmentDiscardPanel() {
     box.appendChild(confirm);
 
     if (gameConfig.equipmentRule === "unlimited") {
-      const finish = element("button", "完成拋棄");
+      const finish = element("button", "夠了");
       finish.type = "button";
       finish.style.marginLeft = "8px";
       finish.disabled =
@@ -4247,7 +4343,7 @@ function renderEquipmentDiscardPanel() {
 
       finish.addEventListener("click", async () => {
         if ((participant.pendingEquipmentDiscards || 0) < 1) {
-          alert("無限規則至少要拋棄一件衣物，才能完成。");
+          alert("無限規則，輸一把至少要脫一件。");
           return;
         }
 
