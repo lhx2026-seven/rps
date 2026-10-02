@@ -3443,7 +3443,6 @@ function checkGameEnd() {
       const message = document.createElement("div");
       message.style.marginTop = "20px";
       message.style.padding = "15px";
-      message.style.border = "2px solid #222";
       message.style.borderRadius = "10px";
 
       const strong = document.createElement("strong");
@@ -3469,7 +3468,6 @@ function checkGameEnd() {
     const message = document.createElement("div");
     message.style.marginTop = "20px";
     message.style.padding = "15px";
-    message.style.border = "2px solid #222";
     message.style.borderRadius = "10px";
 
     const strong = document.createElement("strong");
