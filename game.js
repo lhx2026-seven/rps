@@ -1557,7 +1557,7 @@ function renderNormalResults(
     eliminatedBox.style.marginTop = "15px";
 
     eliminatedBox.textContent =
-      "本次淘汰：" +
+      "淘汰者：" +
       newlyEliminated.map(function (participant) {
         return participant.name;
       }).join("、");
@@ -1569,7 +1569,7 @@ function renderNormalResults(
       penalty.style.marginTop = "8px";
 
       penalty.textContent =
-        `加碼處罰：${gameConfig.eliminationPenalty}`;
+        `（${gameConfig.eliminationPenalty}）`;
 
       resultList.appendChild(penalty);
     }
@@ -1882,7 +1882,7 @@ function renderTeamResults(
     eliminatedBox.style.marginTop = "15px";
 
     eliminatedBox.textContent =
-      "本次淘汰隊伍：" +
+      "淘汰隊伍：" +
       eliminationResult.eliminatedTeams.map(
         function (team) {
           return team.name;
@@ -1896,7 +1896,7 @@ function renderTeamResults(
       penalty.style.marginTop = "8px";
 
       penalty.textContent =
-        `加碼處罰：${gameConfig.eliminationPenalty}`;
+        `（${gameConfig.eliminationPenalty}）`;
 
       resultList.appendChild(penalty);
     }
@@ -3449,7 +3449,7 @@ function checkGameEnd() {
       const strong = document.createElement("strong");
 
       strong.textContent =
-        `本回合勝隊：${winner.name}`;
+        `獲勝隊伍：${winner.name}`;
 
       message.appendChild(strong);
       resultList.appendChild(message);
@@ -3475,7 +3475,7 @@ function checkGameEnd() {
     const strong = document.createElement("strong");
 
     strong.textContent =
-      `本回合勝者：${winner.name}`;
+      `獲勝者：${winner.name}`;
 
     message.appendChild(strong);
     resultList.appendChild(message);
