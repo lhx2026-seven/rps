@@ -1554,7 +1554,8 @@ function renderNormalResults(
       document.createElement("div");
 
     eliminatedBox.className = "danger";
-    eliminatedBox.style.marginTop = "15px";
+eliminatedBox.style.cssText =
+  "display:inline-block; margin-top:15px; margin-right:12px; vertical-align:middle;";
 
     eliminatedBox.textContent =
       "淘汰者：" +
@@ -1566,7 +1567,8 @@ function renderNormalResults(
 
     if (gameConfig.eliminationPenalty) {
       const penalty = document.createElement("div");
-      penalty.style.marginTop = "8px";
+      penalty.style.cssText =
+  "display:inline-block; margin-top:15px; vertical-align:middle;";
 
       penalty.textContent =
         `（${gameConfig.eliminationPenalty}）`;
