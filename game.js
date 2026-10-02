@@ -1234,16 +1234,6 @@ if (hasPendingEquipment()) {
   return;
 }
 
-if (
-  roundNumber > 0 &&
-  !window.confirm(
-    `目前已完成 ${roundNumber} 次出拳，確定開始下一次出拳？\n\n` +
-    "本回合成績會繼續累積。"
-  )
-) {
-  return;
-}
-
   roundBusy = true;
   currentEquipmentDiscards = [];
 
