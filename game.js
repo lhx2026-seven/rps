@@ -3192,15 +3192,18 @@ if (importExisting) {
       target._latestSourceRound == null ||
       sourceRoundNumber >= target._latestSourceRound
     ) {
-      ensureEquipment(sourceParticipant);
+ensureEquipment(sourceParticipant);
 
-target.initialEquipment =
-  [...sourceParticipant.initialEquipment];
-
-target.equipment =
+const inheritedEquipment =
   Array.isArray(sourceParticipant.equipment)
     ? [...sourceParticipant.equipment]
-    : [...target.initialEquipment];
+    : [...sourceParticipant.initialEquipment];
+
+target.initialEquipment =
+  [...inheritedEquipment];
+
+target.equipment =
+  [...inheritedEquipment];
 
       target.equipmentHistory = [];
       target.pendingEquipmentLoss = false;
@@ -3494,40 +3497,52 @@ function checkGameEnd() {
 // ============================================================
 
 function addStartButton() {
-  document.getElementById("startRoundBtn")?.remove();
+  let start =
+    document.getElementById("startRoundBtn");
 
-  document
-    .getElementById("resetCurrentRoundBtn")
-    ?.remove();
-
-  const start = element("button", "START！");
-  start.type = "button";
-  start.id = "startRoundBtn";
+  if (!start) {
+    start = element("button", "START！");
+    start.type = "button";
+    start.id = "startRoundBtn";
+    start.addEventListener("click", startRound);
+  }
 
   start.disabled =
     roundBusy || hasPendingEquipment();
 
-  start.addEventListener("click", startRound);
+  let reset =
+    document.getElementById("resetCurrentRoundBtn");
 
-  const reset = element("button", "重設本回合");
-  reset.type = "button";
-  reset.id = "resetCurrentRoundBtn";
+  if (!reset) {
+    reset = element("button", "重設本回合");
+    reset.type = "button";
+    reset.id = "resetCurrentRoundBtn";
+    reset.style.marginLeft = "8px";
+    reset.addEventListener(
+      "click",
+      resetCurrentRound
+    );
+  }
+
   reset.disabled = roundBusy;
-  reset.style.marginLeft = "8px";
 
-reset.addEventListener("click", resetCurrentRound);
+  let deleteButton =
+    document.getElementById("deleteCurrentRoundBtn");
 
-const deleteButton = element("button", "刪除本回合");
-deleteButton.type = "button";
-deleteButton.id = "deleteCurrentRoundBtn";
-deleteButton.disabled = roundBusy;
-deleteButton.style.marginLeft = "8px";
-deleteButton.addEventListener(
-  "click",
-  deleteCurrentTournamentRound
-);
+  if (!deleteButton) {
+    deleteButton = element("button", "刪除此回合");
+    deleteButton.type = "button";
+    deleteButton.id = "deleteCurrentRoundBtn";
+    deleteButton.style.marginLeft = "8px";
+    deleteButton.addEventListener(
+      "click",
+      deleteCurrentTournamentRound
+    );
+  }
 
-operationPanel.append(start, reset, deleteButton);
+  deleteButton.disabled = roundBusy;
+
+  operationPanel.append(start, reset, deleteButton);
 }
 
 async function resetCurrentRound() {
