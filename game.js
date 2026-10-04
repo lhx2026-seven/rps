@@ -73,7 +73,7 @@ function renderStatsTable(
     if (isParticipant &&
       !item.equipment.length
     ) {
-      status += "<br>全裸";
+      status += "\n全裸";
     } else if (
       isParticipant && item.pendingEquipmentLoss) {
       status += "；剩餘衣物";
@@ -3844,7 +3844,7 @@ function getEliminationStatusText(item) {
       : "";
 
   if (penalty) {
-    return `淘汰！<br>${penalty}/`;
+    return `淘汰！\n${penalty}/`;
   }
 
   return "淘汰！";
