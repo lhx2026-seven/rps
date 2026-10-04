@@ -578,6 +578,15 @@ function createStorageControls() {
     chooseSaveDirectory();
   });
 
+  const exportJsonBtn = document.createElement("button");
+  exportJsonBtn.type = "button";
+  exportJsonBtn.textContent = "匯出 JSON 到檔案";
+  exportJsonBtn.style.marginLeft = "8px";
+
+  exportJsonBtn.addEventListener("click", function () {
+    exportGameStateToFile();
+  });
+
   importJsonBtn = document.createElement("button");
   importJsonBtn.type = "button";
   importJsonBtn.textContent = "匯入 JSON 紀錄";
@@ -599,19 +608,107 @@ function createStorageControls() {
   storageStatus = document.createElement("div");
   storageStatus.className = "small";
   storageStatus.style.marginTop = "8px";
-  storageStatus.textContent =
-    "尚未選擇遊戲紀錄資料夾。";
+
+  if (window.showDirectoryPicker) {
+    storageStatus.textContent = "尚未選擇遊戲紀錄資料夾。";
+  } else {
+    chooseFolderBtn.style.display = "none";
+    storageStatus.textContent =
+      "iPhone/iPad：匯出後請在分享選單選「儲存到檔案」。";
+  }
 
   storageControlPanel.appendChild(chooseFolderBtn);
+  storageControlPanel.appendChild(exportJsonBtn);
   storageControlPanel.appendChild(importJsonBtn);
   storageControlPanel.appendChild(importJsonInput);
   storageControlPanel.appendChild(storageStatus);
 
-  const parent =
-    saveResultsInput.closest(".setting-item");
+  const parent = saveResultsInput.closest(".setting-item");
 
   if (parent) {
     parent.appendChild(storageControlPanel);
+  }
+}
+
+async function exportGameStateToFile() {
+  if (participants.length === 0) {
+    alert("請先建立目前的遊戲。");
+    return;
+  }
+
+  saveCurrentTournamentRoundSnapshot();
+
+  const data = {
+    version: "gamma",
+    savedAt: new Date().toISOString(),
+    gameConfig: copyObject(gameConfig),
+    participants: copyObject(participants),
+    teams: copyObject(teams),
+    roundNumber: roundNumber,
+    roundHistory: copyObject(roundHistory),
+    tournamentRoundNumber: tournamentRoundNumber,
+    tournamentRounds: copyObject(tournamentRounds)
+  };
+
+  if (!saveFileName) {
+    saveFileName = createJsonFileName();
+  }
+
+  const filename = saveFileName;
+  const json = JSON.stringify(data, null, 2);
+  const file = new File(
+    [json],
+    filename,
+    { type: "application/json" }
+  );
+
+  if (
+    navigator.share &&
+    navigator.canShare &&
+    navigator.canShare({ files: [file] })
+  ) {
+    try {
+      await navigator.share({
+        files: [file],
+        title: "遊戲紀錄 JSON"
+      });
+
+      if (storageStatus) {
+        storageStatus.textContent =
+          "已開啟分享選單，請選擇「儲存到檔案」。";
+        storageStatus.style.color = "green";
+      }
+
+      return;
+    } catch (error) {
+      if (error.name === "AbortError") {
+        return;
+      }
+    }
+  }
+
+  const blob = new Blob(
+    [json],
+    { type: "application/json" }
+  );
+
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+
+  setTimeout(function () {
+    URL.revokeObjectURL(url);
+  }, 1000);
+
+  if (storageStatus) {
+    storageStatus.textContent =
+      "JSON 已匯出；請確認瀏覽器下載的檔案。";
+    storageStatus.style.color = "green";
   }
 }
 
@@ -798,19 +895,22 @@ const randomNames = createRandomParticipantNames(playerCount);
 
   resultList.innerHTML = "";
 
-  if (gameConfig.saveResults) {
-    if (!saveDirectoryHandle) {
-      const selected = await chooseSaveDirectory();
+if (gameConfig.saveResults) {
+  if (saveDirectoryHandle) {
+    await saveGameState();
+  } else if (window.showDirectoryPicker) {
+    const selected = await chooseSaveDirectory();
 
-      if (!selected) {
-        alert(
-          "未選擇遊戲紀錄資料夾，因此本次遊戲不會自動儲存 JSON。"
-        );
-      }
-    } else {
-      await saveGameState();
+    if (!selected) {
+      alert(
+        "未選擇遊戲紀錄資料夾，本次遊戲不會自動儲存。"
+      );
     }
+  } else if (storageStatus) {
+    storageStatus.textContent =
+      "儲存請按「匯出 JSON 到檔案」。";
   }
+}
 
   alert("遊戲建立完成。");
 }
