@@ -68,24 +68,53 @@ function renderStatsTable(
       );
     }
 
-    let status = getEliminationStatusText(item);
+const statusLines = [];
 
-    if (isParticipant &&
-      !item.equipment.length
-    ) {
-      status += "\n全裸";
-    } else if (
-      isParticipant && item.pendingEquipmentLoss) {
-      status += "；剩餘衣物";
-    }
+if (item.eliminated) {
+  statusLines.push("淘汰！");
+}
 
-    cells.push(status);
+if (isParticipant && !item.equipment.length) {
+  statusLines.push("全裸");
+}
 
-    cells.forEach(value => {
-      row.appendChild(
-        element("td", String(value ?? ""))
-      );
+const penalty =
+  typeof gameConfig.eliminationPenalty === "string"
+    ? gameConfig.eliminationPenalty.trim()
+    : "";
+
+if (item.eliminated && penalty) {
+  statusLines.push(`${penalty}/`);
+}
+
+if (
+  isParticipant &&
+  item.pendingEquipmentLoss &&
+  item.equipment.length > 0
+) {
+  statusLines.push("剩餘衣物");
+}
+
+cells.push(statusLines);
+
+cells.forEach(value => {
+  const cell = element("td", "");
+
+  if (Array.isArray(value)) {
+    value.forEach((line, index) => {
+      if (index > 0) {
+        cell.appendChild(document.createElement("br"));
+      }
+
+      cell.appendChild(document.createTextNode(line));
     });
+  } else {
+    cell.textContent = String(value ?? "");
+  }
+
+  row.appendChild(cell);
+});
+
 
     body.appendChild(row);
   });
@@ -3844,7 +3873,7 @@ function getEliminationStatusText(item) {
       : "";
 
   if (penalty) {
-    return `淘汰！\n${penalty}\n`;
+    return `淘汰！${penalty}`;
   }
 
   return "淘汰！";
