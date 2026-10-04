@@ -3844,7 +3844,7 @@ function getEliminationStatusText(item) {
       : "";
 
   if (penalty) {
-    return `淘汰！\n${penalty}/`;
+    return `淘汰！\n${penalty}\n`;
   }
 
   return "淘汰！";
