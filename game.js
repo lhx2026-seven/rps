@@ -84,7 +84,7 @@ const penalty =
     : "";
 
 if (item.eliminated && penalty) {
-  statusLines.push(`${penalty}/`);
+  statusLines.push(`${penalty}`);
 }
 
 if (
