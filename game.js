@@ -22,7 +22,7 @@ function renderStatsTable(
     headings.push("衣物數量", "剩餘衣物");
   }
 
-  headings.push("結果");
+  headings.push("紀錄", "結果");
 
   const header = element("tr");
 
@@ -95,7 +95,10 @@ if (
   statusLines.push("剩餘衣物");
 }
 
-cells.push(statusLines);
+cells.push(
+  getThrowHistoryText(item, isParticipant),
+  statusLines
+);
 
 cells.forEach(value => {
   const cell = element("td", "");
@@ -121,6 +124,51 @@ cells.forEach(value => {
 
   table.append(head, body);
   statsList.appendChild(table);
+}
+
+function getThrowHistoryText(item, isParticipant) {
+  const hands = [];
+
+  roundHistory.forEach(record => {
+    if (record.mode === "normal") {
+      if (!isParticipant) return;
+
+      const fist = record.throws?.[item.id];
+      const result = record.results?.[item.id];
+
+      if (fist && result) {
+        hands.push(fistEmoji(fist));
+      }
+
+      return;
+    }
+
+    if (record.mode !== "team") return;
+
+    let historyKey;
+
+    if (isParticipant) {
+      const representativeId =
+        record.representatives?.[`team-${item.teamId}`];
+
+      if (Number(representativeId) !== Number(item.id)) {
+        return;
+      }
+
+      historyKey = item.teamId;
+    } else {
+      historyKey = item.id;
+    }
+
+    const fist = record.throws?.[historyKey];
+    const result = record.results?.[historyKey];
+
+    if (fist && result) {
+      hands.push(fistEmoji(fist));
+    }
+  });
+
+  return hands.join(" ");
 }
 
 // ============================================================
@@ -656,7 +704,7 @@ async function createGame() {
   gameConfig = {
     equipmentDiscardMode:
       document.querySelector(
-        'input[name="equipmentDiscardMode"]:checked'
+        'input[name="initialEquipmentDiscardMode"]:checked'
       )?.value || "manual",
 
     theme: gameThemeInput.value.trim(),
@@ -780,7 +828,9 @@ function renderParticipantSettings() {
       : "manual";
 
   document
-    .querySelectorAll('input[name="equipmentDiscardMode"]')
+    .querySelectorAll(
+  'input[name="initialEquipmentDiscardMode"], input[name="nextEquipmentDiscardMode"]'
+)    
     .forEach(input => {
       input.checked =
         input.value === gameConfig.equipmentDiscardMode;
@@ -4045,7 +4095,21 @@ function handleEquipmentLoss(participant) {
   participant.pendingEquipmentLoss = true;
   participant.pendingEquipmentDiscards = 0;
 
-  if (gameConfig.equipmentDiscardMode === "computer") {
+  const selectedDiscardMode =
+  document.querySelector(
+    'input[name="equipmentDiscardMode"]:checked'
+  )?.value;
+
+const discardMode =
+  selectedDiscardMode === "computer" ||
+  (
+    selectedDiscardMode == null &&
+    gameConfig.equipmentDiscardMode === "computer"
+  )
+    ? "computer"
+    : "manual";
+
+if (discardMode === "computer") {
     do {
       const options = legalEquipment(participant);
 
@@ -4203,7 +4267,9 @@ function initializeEquipmentControls() {
   }
 
   document
-    .querySelectorAll('input[name="equipmentDiscardMode"]')
+    .querySelectorAll(
+  'input[name="initialEquipmentDiscardMode"], input[name="nextEquipmentDiscardMode"]'
+)
     .forEach(input => {
       input.addEventListener("change", () => {
         if (input.checked) {
