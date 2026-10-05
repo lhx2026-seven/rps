@@ -62,9 +62,15 @@ function renderStatsTable(
     );
 
     if (isParticipant) {
+      const discardOrder = Array.isArray(item.equipmentHistory)
+        ? item.equipmentHistory.map(record => record.equipment).filter(Boolean)
+        : [];
       cells.push(
         `${item.equipment.length}/${item.initialEquipment.length}`,
-        item.equipment.join("、") || "無"
+        [
+          item.equipment.join("、") || "無",
+          `(脫掉順序：${discardOrder.join("、") || "無"})`
+        ]
       );
     }
 
@@ -265,6 +271,7 @@ let playerThrows = {};
 let teamRepresentatives = {};
 let roundNumber = 0;
 let roundHistory = [];
+let tournamentFrozen = false;
 let saveDirectoryHandle = null;
 let saveFileName = "";
 let tournamentRoundNumber = 1;
@@ -306,6 +313,12 @@ const lossLimitBox =
 
 const lossLimitInput =
   document.getElementById("lossLimit");
+
+const emptyEquipmentLimitBox =
+  document.getElementById("emptyEquipmentLimitBox");
+
+const emptyEquipmentLimitInput =
+  document.getElementById("emptyEquipmentLimit");
 
 const penaltyBox =
   document.getElementById("penaltyBox");
@@ -409,6 +422,12 @@ const nextLossLimitBox =
 const nextLossLimitInput =
   document.getElementById("nextLossLimit");
 
+const nextEmptyEquipmentLimitBox =
+  document.getElementById("nextEmptyEquipmentLimitBox");
+
+const nextEmptyEquipmentLimitInput =
+  document.getElementById("nextEmptyEquipmentLimit");
+
 const nextPenaltyBox =
   document.getElementById("nextPenaltyBox");
 
@@ -429,7 +448,13 @@ let importJsonInput = null;
 // ============================================================
 
 updateEliminationSettingsVisibility();
+setEquipmentEliminationOptionLabel(eliminationModeInput);
+setEquipmentEliminationOptionLabel(nextEliminationModeInput);
 createStorageControls();
+
+document
+  .getElementById("freezeTournamentSummaryBtn")
+  ?.addEventListener("click", freezeAndSummarizeTournament);
 
 teamModeInput.addEventListener("change", function () {
   teamSettings.classList.toggle(
@@ -545,16 +570,105 @@ if (nextEliminationModeInput) {
 });
 
 function updateEliminationSettingsVisibility() {
-  const enabled =
+  const lossEnabled =
     eliminationModeInput.value === "loss";
 
+  const equipmentEnabled =
+    eliminationModeInput.value === "equipment";
+
   if (lossLimitBox) {
-    lossLimitBox.classList.toggle("hidden", !enabled);
+    lossLimitBox.classList.toggle("hidden", !lossEnabled);
   }
 
   if (penaltyBox) {
-    penaltyBox.classList.toggle("hidden", !enabled);
+    penaltyBox.classList.toggle("hidden", !lossEnabled && !equipmentEnabled);
   }
+
+  if (emptyEquipmentLimitBox) {
+    emptyEquipmentLimitBox.classList.toggle("hidden", !equipmentEnabled);
+  }
+
+  if (nextEliminationModeInput) {
+    updateNextEliminationSettingsVisibility();
+  }
+}
+
+function setEquipmentEliminationOptionLabel(select) {
+  if (!select?.options) return;
+
+  const equipmentOption = Array.from(select.options).find(
+    option => option.value === "equipment"
+  );
+
+  if (equipmentOption) {
+    equipmentOption.textContent = "ZENRA淘汰制";
+  }
+}
+
+function readPositiveInteger(input, fallback = 1) {
+  const parsed = parseInt(input?.value, 10);
+  return Number.isFinite(parsed) && parsed >= 1 ? parsed : fallback;
+}
+
+function normalizeRoundLossCounters() {
+  participants.forEach(participant => {
+    const roundResults = getParticipantRoundResults(participant);
+    const hasRecordedResult = roundHistory.some(record => {
+      if (record.mode === "normal") {
+        return Object.prototype.hasOwnProperty.call(
+          record.results || {},
+          participant.id
+        );
+      }
+
+      if (record.mode === "team") {
+        return Object.values(record.representatives || {}).some(
+          participantId => Number(participantId) === Number(participant.id)
+        );
+      }
+
+      return false;
+    });
+
+    // 本回合歷史是淘汰敗場的來源；避免匯入舊 JSON 時沿用過期的計數器。
+    if (hasRecordedResult) {
+      participant.roundLosses = roundResults.losses;
+    } else if (!Number.isFinite(Number(participant.roundLosses))) {
+      participant.roundLosses = roundResults.losses;
+    } else {
+      participant.roundLosses = Math.max(
+        0,
+        Math.floor(Number(participant.roundLosses))
+      );
+    }
+
+    if (!participant.roundStartStats || typeof participant.roundStartStats !== "object") {
+      participant.roundStartStats = {
+        wins: Math.max(0, (Number(participant.wins) || 0) - roundResults.wins),
+        losses: Math.max(0, (Number(participant.losses) || 0) - roundResults.losses),
+        ties: Math.max(0, (Number(participant.ties) || 0) - roundResults.ties)
+      };
+    }
+  });
+}
+
+function getParticipantRoundResults(participant) {
+  const totals = { wins: 0, losses: 0, ties: 0 };
+  roundHistory.forEach(record => {
+    let result = null;
+    if (record.mode === "normal") {
+      result = record.results?.[participant.id];
+    } else if (
+      record.mode === "team" &&
+      Number(record.representatives?.[`team-${participant.teamId}`]) === Number(participant.id)
+    ) {
+      result = record.results?.[participant.teamId];
+    }
+    if (result === "win") totals.wins++;
+    else if (result === "loss") totals.losses++;
+    else if (result === "tie") totals.ties++;
+  });
+  return totals;
 }
 
 // ============================================================
@@ -756,6 +870,8 @@ async function chooseSaveDirectory() {
 // ============================================================
 
 async function createGame() {
+  if (tournamentFrozen) return;
+
   if (blockPendingEquipment()) return;
 
   const playerCount =
@@ -815,6 +931,7 @@ async function createGame() {
         : "normal",
     eliminationMode: eliminationModeInput.value,
     lossLimit: lossLimit,
+    emptyEquipmentLimit: readPositiveInteger(emptyEquipmentLimitInput),
     eliminationPenalty:
       eliminationPenaltyInput.value.trim()
   };
@@ -834,6 +951,8 @@ const randomNames = createRandomParticipantNames(playerCount);
       wins: 0,
       losses: 0,
       ties: 0,
+      roundLosses: 0,
+      roundStartStats: { wins: 0, losses: 0, ties: 0 },
       eliminated: false
     });
   }
@@ -849,6 +968,7 @@ const randomNames = createRandomParticipantNames(playerCount);
         wins: 0,
         losses: 0,
         ties: 0,
+        roundLosses: 0,
         eliminated: false
       });
     }
@@ -862,6 +982,9 @@ const randomNames = createRandomParticipantNames(playerCount);
   teamRepresentatives = {};
   roundNumber = 0;
   roundHistory = [];
+  tournamentFrozen = false;
+  document.getElementById("frozenSummaryPanel")?.classList.add("hidden");
+  document.getElementById("tournamentSummaryControl")?.classList.add("hidden");
   tournamentRoundNumber = 1;
   tournamentRounds = [];
   saveFileName = createJsonFileName();
@@ -915,8 +1038,7 @@ if (gameConfig.saveResults) {
   alert("遊戲建立完成。");
 }
 
-// ============================================================
-// 個別參賽者設定
+// ============================================================// 個別參賽者設定
 // ============================================================
 
 function renderParticipantSettings() {
@@ -930,7 +1052,7 @@ function renderParticipantSettings() {
   document
     .querySelectorAll(
   'input[name="initialEquipmentDiscardMode"], input[name="nextEquipmentDiscardMode"]'
-)    
+)
     .forEach(input => {
       input.checked =
         input.value === gameConfig.equipmentDiscardMode;
@@ -1406,6 +1528,7 @@ function renderTeamOperation() {
 // ============================================================
 
 async function startRound() {
+if (tournamentFrozen) return;
 if (roundBusy) return;
 
 if (hasPendingEquipment()) {
@@ -1638,6 +1761,7 @@ function applyNormalResults(results) {
       participant.wins++;
     } else if (result === "loss") {
       participant.losses++;
+      participant.roundLosses = (Number(participant.roundLosses) || 0) + 1;
       handleEquipmentLoss(participant);
     } else {
       participant.ties++;
@@ -1647,14 +1771,35 @@ function applyNormalResults(results) {
       !gameConfig.teamMode &&
       gameConfig.eliminationMode === "loss" &&
       !participant.eliminated &&
-      participant.losses >= gameConfig.lossLimit
+      participant.roundLosses >= gameConfig.lossLimit
     ) {
       participant.eliminated = true;
       newlyEliminated.push(participant);
     }
   });
 
+  newlyEliminated.push(...eliminateFullyStrippedParticipants());
+
   return newlyEliminated;
+}
+
+function eliminateFullyStrippedParticipants() {
+  if (gameConfig.eliminationMode !== "equipment") return [];
+
+  const stripped = participants.filter(participant => {
+    ensureEquipment(participant);
+    return !participant.eliminated && participant.equipment.length === 0;
+  });
+
+  const limit = readPositiveInteger({
+    value: gameConfig.emptyEquipmentLimit
+  });
+  if (stripped.length < limit) return [];
+
+  stripped.forEach(participant => {
+    participant.eliminated = true;
+  });
+  return stripped;
 }
 
 function renderNormalResults(
@@ -1893,8 +2038,7 @@ function calculateTeamResults(activeTeams, throws) {
   ) {
     winningFist = "rock";
   } else if (
-    fists.includes("scissors") &&
-    fists.includes("paper")
+    fists.includes("scissors") &&    fists.includes("paper")
   ) {
     winningFist = "scissors";
   } else {
@@ -1943,6 +2087,7 @@ function applyTeamResults(activeTeams, results) {
         representative.wins++;
       } else if (result === "loss") {
         representative.losses++;
+        representative.roundLosses = (Number(representative.roundLosses) || 0) + 1;
 
         if (gameConfig.teamEquipmentSolidarity !== false) {
           participants
@@ -1976,6 +2121,8 @@ function applyTeamResults(activeTeams, results) {
       });
     }
   });
+
+  eliminatedParticipants.push(...eliminateFullyStrippedParticipants());
 
   return {
     eliminatedTeams: eliminatedTeams,
@@ -2096,6 +2243,182 @@ function renderStats() {
   } else {
     renderParticipantStats();
   }
+
+  const summaryControl = document.getElementById("tournamentSummaryControl");
+  if (summaryControl) {
+    summaryControl.classList.toggle(
+      "hidden",
+      tournamentFrozen || tournamentRounds.length < 2
+    );
+  }
+}
+
+function getParticipantResultLines(participant, penalty) {
+  const lines = [];
+  if (participant.eliminated) lines.push("淘汰！");
+  if (Array.isArray(participant.equipment) && participant.equipment.length === 0) {
+    lines.push("全裸");
+  }
+  if (participant.eliminated && penalty) lines.push(penalty);
+  if (participant.pendingEquipmentLoss && participant.equipment?.length > 0) {
+    lines.push("剩餘衣物");
+  }
+  return lines;
+}
+
+function freezeAndSummarizeTournament() {
+  if (tournamentFrozen) return;
+  if (!window.confirm("統整全部回合的參賽者結果後，遊戲將凍結，不能再操作。確定繼續？")) {
+    return;
+  }
+
+  saveCurrentTournamentRoundSnapshot();
+
+  const aggregateByParticipant = new Map();
+
+  const output = tournamentRounds.map(snapshot => {
+    const title = getTournamentRoundDisplayName(snapshot);
+    const people = (snapshot.participants || []).map(participant => {
+      const roundStats = getSnapshotParticipantRoundStats(
+        snapshot,
+        participant
+      );
+      const key = participant.participantKey ||
+        `legacy:${participant.name}`;
+      let aggregate = aggregateByParticipant.get(key);
+
+      if (!aggregate) {
+        aggregate = {
+          name: participant.name,
+          wins: 0,
+          losses: 0,
+          ties: 0,
+          latestSnapshot: null,
+          latestParticipant: null,
+          latestPenalty: ""
+        };
+        aggregateByParticipant.set(key, aggregate);
+      }
+
+      aggregate.name = participant.name || aggregate.name;
+      aggregate.wins += roundStats.wins;
+      aggregate.losses += roundStats.losses;
+      aggregate.ties += roundStats.ties;
+      aggregate.latestSnapshot = snapshot;
+      aggregate.latestParticipant = participant;
+      aggregate.latestPenalty =
+        snapshot.gameConfig?.eliminationPenalty || "";
+
+      const status = getParticipantResultLines(
+        participant,
+        snapshot.gameConfig?.eliminationPenalty || ""
+      );
+
+      const equipmentLeft = Array.isArray(participant.equipment)
+        ? participant.equipment.join("、") || "無"
+        : "未記錄";
+      const discardOrder = Array.isArray(participant.equipmentHistory)
+        ? participant.equipmentHistory
+            .map(record => record.equipment)
+            .filter(Boolean)
+            .join(" → ") || "無"
+        : "未記錄";
+
+      return [
+        participant.name,
+        `勝 ${roundStats.wins}／敗 ${roundStats.losses}／平 ${roundStats.ties}`,
+        `剩餘衣物：${equipmentLeft}`,
+        `脫掉順序：${discardOrder}`,
+        `結果：${status.join("、") || "—"}`
+      ].join("\t");
+    });
+    return [`【${title}】`, ...people].join("\n");
+  }).join("\n\n");
+
+  const totals = Array.from(aggregateByParticipant.values()).map(aggregate => {
+    const finalStatus = getParticipantResultLines(
+      aggregate.latestParticipant,
+      aggregate.latestPenalty
+    );
+    const rate = calculateActualWinRate(aggregate);
+    return [
+      aggregate.name,
+      `總勝 ${aggregate.wins}／總敗 ${aggregate.losses}／總平 ${aggregate.ties}`,
+      `實際勝率 ${rate}`,
+      `最終結果：${finalStatus.join("、") || "—"}`
+    ].join("\t");
+  });
+
+  const summaryOutput = document.getElementById("frozenSummaryOutput");
+  if (summaryOutput) {
+    summaryOutput.value = [
+      "【全部回合參賽者總彙整】",
+      ...totals,
+      "",
+      output
+    ].join("\n");
+    summaryOutput.readOnly = true;
+  }
+
+  document.getElementById("frozenSummaryPanel")?.classList.remove("hidden");
+  tournamentFrozen = true;
+  document.getElementById("tournamentSummaryControl")?.classList.add("hidden");
+
+  document.querySelectorAll("button, input, select, textarea").forEach(control => {
+    if (control.id !== "frozenSummaryOutput") control.disabled = true;
+  });
+
+  summaryOutput?.focus();
+  summaryOutput?.select();
+}
+
+function getSnapshotParticipantRoundStats(snapshot, participant) {
+  const totals = { wins: 0, losses: 0, ties: 0 };
+  let hasHistory = false;
+
+  (snapshot.roundHistory || []).forEach(record => {
+    let result = null;
+
+    if (record.mode === "normal") {
+      if (Object.prototype.hasOwnProperty.call(record.results || {}, participant.id)) {
+        result = record.results[participant.id];
+      }
+    } else if (record.mode === "team") {
+      const representedTeam = Object.entries(record.representatives || {})
+        .find(([, participantId]) =>
+          Number(participantId) === Number(participant.id)
+        );
+
+      if (representedTeam) {
+        const teamId = representedTeam[0].replace(/^team-/, "");
+        result = record.results?.[teamId];
+      }
+    }
+
+    if (result === "win") {
+      totals.wins++;
+      hasHistory = true;
+    } else if (result === "loss") {
+      totals.losses++;
+      hasHistory = true;
+    } else if (result === "tie") {
+      totals.ties++;
+      hasHistory = true;
+    }
+  });
+
+  if (hasHistory) return totals;
+
+  const baseline = participant.roundStartStats;
+  ["wins", "losses", "ties"].forEach(key => {
+    const total = Number(participant[key]) || 0;
+    const start = Number(baseline?.[key]);
+    totals[key] = Number.isFinite(start)
+      ? Math.max(0, total - start)
+      : Math.max(0, total);
+  });
+
+  return totals;
 }
 
 function renderParticipantStats() {
@@ -2113,8 +2436,10 @@ function renderTeamStats() {
 }
 
 function calculateActualWinRate(item) {
-  const wins = Number(item.wins || 0);
-  const losses = Number(item.losses || 0);
+  const rawWins = Number(item?.wins);
+  const rawLosses = Number(item?.losses);
+  const wins = Number.isFinite(rawWins) ? Math.max(0, rawWins) : 0;
+  const losses = Number.isFinite(rawLosses) ? Math.max(0, rawLosses) : 0;
   const total = wins + losses;
 
   if (total === 0) {
@@ -2254,6 +2579,12 @@ function createJsonFileName() {
 // ============================================================
 
 function importGameData(event) {
+  if (tournamentFrozen) {
+    alert("總彙整後遊戲已凍結，不能再匯入或修改資料。");
+    event.target.value = "";
+    return;
+  }
+
   if (blockPendingEquipment()) {
     event.target.value = "";
     return;
@@ -2299,7 +2630,7 @@ function importGameData(event) {
         gameConfig.eliminationMode = "loss";
       }
 
-      if (gameConfig.eliminationMode !== "loss") {
+      if (!["loss", "equipment"].includes(gameConfig.eliminationMode)) {
         gameConfig.eliminationMode = "none";
       }
 
@@ -2314,6 +2645,9 @@ function importGameData(event) {
       }
 
       gameConfig.lossLimit = importedLossLimit;
+
+      gameConfig.emptyEquipmentLimit =
+        readPositiveInteger({ value: gameConfig.emptyEquipmentLimit });
 
       if (
         typeof gameConfig.eliminationPenalty !== "string"
@@ -2380,6 +2714,8 @@ function importGameData(event) {
           participant.teamId = null;
         }
       });
+
+      normalizeRoundLossCounters();
 
       teams.forEach(function (team, index) {
         if (team.id == null) {
@@ -2486,6 +2822,9 @@ function importGameData(event) {
 
       eliminationModeInput.value =
         gameConfig.eliminationMode;
+
+      emptyEquipmentLimitInput.value =
+        gameConfig.emptyEquipmentLimit;
 
       lossLimitInput.value =
         gameConfig.lossLimit;
@@ -2736,6 +3075,7 @@ function renderTournamentRoundTabs() {
 }
 
 function switchTournamentRound(targetRoundNumber) {
+  if (tournamentFrozen) return;
   if (blockPendingEquipment()) return;
 
   if (targetRoundNumber === tournamentRoundNumber) {
@@ -2780,6 +3120,10 @@ function switchTournamentRound(targetRoundNumber) {
     Array.isArray(target.roundHistory)
       ? copyObject(target.roundHistory)
       : [];
+
+  gameConfig.emptyEquipmentLimit =
+    readPositiveInteger({ value: gameConfig.emptyEquipmentLimit });
+  normalizeRoundLossCounters();
 
   playerThrows = {};
   teamRepresentatives = {};
@@ -2826,8 +3170,7 @@ function syncTournamentRoundToInterface() {
   teamModeInput.checked =
     !!gameConfig.teamMode;
 
-  teamSettings.classList.toggle(
-    "hidden",
+  teamSettings.classList.toggle(    "hidden",
     !gameConfig.teamMode
   );
 
@@ -2837,6 +3180,11 @@ function syncTournamentRoundToInterface() {
 
   eliminationModeInput.value =
     gameConfig.eliminationMode || "none";
+
+  if (emptyEquipmentLimitInput) {
+    emptyEquipmentLimitInput.value =
+      gameConfig.emptyEquipmentLimit || 1;
+  }
 
   lossLimitInput.value =
     gameConfig.lossLimit || 1;
@@ -3113,6 +3461,11 @@ if (importExistingParticipantsInput) {
       gameConfig.lossLimit || 1;
   }
 
+  if (nextEmptyEquipmentLimitInput) {
+    nextEmptyEquipmentLimitInput.value =
+      gameConfig.emptyEquipmentLimit || 1;
+  }
+
   if (nextEliminationPenaltyInput) {
     nextEliminationPenaltyInput.value =
       gameConfig.eliminationPenalty || "";
@@ -3140,20 +3493,30 @@ function updateNextTeamSettingsVisibility() {
 function updateNextEliminationSettingsVisibility() {
   if (!nextEliminationModeInput) return;
 
-  const enabled =
+  const lossEnabled =
     nextEliminationModeInput.value === "loss";
+
+  const equipmentEnabled =
+    nextEliminationModeInput.value === "equipment";
 
   if (nextLossLimitBox) {
     nextLossLimitBox.classList.toggle(
       "hidden",
-      !enabled
+      !lossEnabled
     );
   }
 
   if (nextPenaltyBox) {
     nextPenaltyBox.classList.toggle(
       "hidden",
-      !enabled
+      !lossEnabled && !equipmentEnabled
+    );
+  }
+
+  if (nextEmptyEquipmentLimitBox) {
+    nextEmptyEquipmentLimitBox.classList.toggle(
+      "hidden",
+      !equipmentEnabled
     );
   }
 }
@@ -3163,6 +3526,8 @@ function updateNextEliminationSettingsVisibility() {
 // ============================================================
 
 async function createNextTournamentRound() {
+  if (tournamentFrozen) return;
+
   if (blockPendingEquipment()) return;
 
   if (participants.length === 0) {
@@ -3240,6 +3605,7 @@ if (createNew) {
       wins: 0,
       losses: 0,
       ties: 0,
+      roundLosses: 0,
       eliminated: false
     });
   }
@@ -3351,6 +3717,7 @@ if (importExisting) {
         wins: 0,
         losses: 0,
         ties: 0,
+        roundLosses: 0,
         eliminated: false,
         _latestSourceRound: sourceRoundNumber,
         _statsSourceRound: null
@@ -3454,6 +3821,18 @@ if (newParticipants.length > 64) {
   return;
 }
 
+newParticipants.forEach(participant => {
+  participant.roundLosses = 0;
+  participant.pendingEquipmentLoss = false;
+  participant.pendingEquipmentDiscards = 0;
+  participant.eliminated = false;
+  participant.roundStartStats = {
+    wins: Number(participant.wins) || 0,
+    losses: Number(participant.losses) || 0,
+    ties: Number(participant.ties) || 0
+  };
+});
+
   const useTeamMode =
     nextTeamModeInput
       ? !!nextTeamModeInput.checked
@@ -3506,10 +3885,12 @@ if (newParticipants.length > 64) {
     nextLossLimit = 1;
   }
 
+  const nextEmptyEquipmentLimit =
+    readPositiveInteger(nextEmptyEquipmentLimitInput);
+
   const nextEliminationMode =
-    nextEliminationModeInput &&
-    nextEliminationModeInput.value === "loss"
-      ? "loss"
+    ["loss", "equipment"].includes(nextEliminationModeInput?.value)
+      ? nextEliminationModeInput.value
       : "none";
 
   const nextPenalty =
@@ -3529,6 +3910,7 @@ if (newParticipants.length > 64) {
     equipmentRule: nextEquipmentRule,
     eliminationMode: nextEliminationMode,
     lossLimit: nextLossLimit,
+    emptyEquipmentLimit: nextEmptyEquipmentLimit,
     eliminationPenalty: nextPenalty
   };
 
@@ -3543,6 +3925,7 @@ if (newParticipants.length > 64) {
         wins: 0,
         losses: 0,
         ties: 0,
+        roundLosses: 0,
         eliminated: false
       });
     }
@@ -3609,12 +3992,14 @@ if (newParticipants.length > 64) {
 // ============================================================
 
 function checkGameEnd() {
-  if (gameConfig.eliminationMode !== "loss") return;
+  if (!["loss", "equipment"].includes(gameConfig.eliminationMode)) return;
 
   if (gameConfig.teamMode) {
     const activeTeams = teams.filter(
       function (team) {
-        return !team.eliminated;
+        return !team.eliminated && participants.some(participant =>
+          participant.teamId === team.id && !participant.eliminated
+        );
       }
     );
 
@@ -3716,6 +4101,7 @@ function addStartButton() {
 }
 
 async function resetCurrentRound() {
+  if (tournamentFrozen) return;
   if (roundBusy || !participants.length) return;
 
   if (
@@ -3734,8 +4120,10 @@ async function resetCurrentRound() {
       ensureEquipment(participant);
 
       participant.wins = 0;
-      participant.losses = 0;
-      participant.ties = 0;
+      participant.losses = Number(participant.roundStartStats?.losses) || 0;
+      participant.ties = Number(participant.roundStartStats?.ties) || 0;
+      participant.wins = Number(participant.roundStartStats?.wins) || 0;
+      participant.roundLosses = 0;
       participant.eliminated = false;
 
       participant.equipment =
@@ -3774,6 +4162,7 @@ async function resetCurrentRound() {
   }
 }
 async function deleteCurrentTournamentRound() {
+  if (tournamentFrozen) return;
   if (roundBusy || !participants.length) return;
   if (blockPendingEquipment()) return;
 
@@ -3787,8 +4176,7 @@ async function deleteCurrentTournamentRound() {
     0
   );
 
-  if (Number(tournamentRoundNumber) !== latestRoundNumber) {
-    alert("目前只能刪除最新回合。");
+  if (Number(tournamentRoundNumber) !== latestRoundNumber) {    alert("目前只能刪除最新回合。");
     return;
   }
 
@@ -4466,7 +4854,7 @@ function renderEquipmentDiscardPanel() {
         label.style.opacity = "0.45";
 
         label.title =
-          "必須先拋棄：" +
+          "必須先脫：" +
           (EQUIPMENT_BLOCKERS[item] || [])
             .filter(
               value => participant.equipment.includes(value)
@@ -4484,7 +4872,7 @@ function renderEquipmentDiscardPanel() {
 
     box.appendChild(choices);
 
-    const confirm = element("button", "請脫");
+    const confirm = element("button", "脫");
     confirm.type = "button";
     confirm.disabled = roundBusy;
 
@@ -4521,6 +4909,14 @@ function renderEquipmentDiscardPanel() {
         history.equipmentDiscards.push(record);
       }
 
+      const eliminatedNow = eliminateFullyStrippedParticipants();
+      if (history && eliminatedNow.length) {
+        if (!Array.isArray(history.eliminated)) history.eliminated = [];
+        history.eliminated.push(...eliminatedNow.map(item => item.id));
+        history.eliminationPenalty = gameConfig.eliminationPenalty || "";
+        history.penalty = gameConfig.eliminationPenalty || "";
+      }
+
       appendEquipmentDiscardMessage(record);
 
       renderParticipantSettings();
@@ -4530,6 +4926,7 @@ function renderEquipmentDiscardPanel() {
 
       saveCurrentTournamentRoundSnapshot();
       await saveGameState();
+      if (eliminatedNow.length) checkGameEnd();
     });
 
     box.appendChild(confirm);

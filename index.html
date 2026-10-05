@@ -387,12 +387,18 @@
         <select id="eliminationMode">
           <option value="none">無淘汰制</option>
           <option value="loss">累積淘汰制</option>
+          <option value="equipment">ZENRA淘汰制</option>
         </select>
       </div>
 
       <div id="lossLimitBox" class="setting-row hidden">
         <div class="setting-title">累積幾敗淘汰</div>
         <input type="number" id="lossLimit" min="1" value="1">
+      </div>
+
+      <div id="emptyEquipmentLimitBox" class="setting-row hidden">
+        <div class="setting-title">淘汰人數</div>
+        <input type="number" id="emptyEquipmentLimit" min="1" value="1">
       </div>
 
       <div id="penaltyBox" class="setting-row hidden">
@@ -588,6 +594,7 @@
         <select id="nextEliminationMode">
           <option value="none">無淘汰制</option>
           <option value="loss">累積淘汰制</option>
+          <option value="equipment">裝備全拋淘汰制</option>
         </select>
       </div>
 
@@ -603,6 +610,11 @@
           min="1"
           value="1"
         >
+      </div>
+
+      <div id="nextEmptyEquipmentLimitBox" class="setting-row hidden">
+        <div class="setting-title">幾人全拋裝備後淘汰</div>
+        <input type="number" id="nextEmptyEquipmentLimit" min="1" value="1">
       </div>
 
       <div
@@ -786,6 +798,13 @@
     <div id="statsPanel" class="panel hidden">
       <h2>統計</h2>
       <div id="statsList"></div>
+      <div id="tournamentSummaryControl" class="hidden" style="margin-top:16px;">
+        <button type="button" id="freezeTournamentSummaryBtn">統整全部參賽者結果</button>
+      </div>
+      <div id="frozenSummaryPanel" class="hidden" style="margin-top:16px;">
+        <h3>全部參賽者結果（遊戲已凍結）</h3>
+        <textarea id="frozenSummaryOutput" readonly style="width:100%; min-height:240px;"></textarea>
+      </div>
     </div>
 
   </div>
