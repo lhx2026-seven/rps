@@ -84,6 +84,10 @@ if (isParticipant && !item.equipment.length) {
   statusLines.push("全裸");
 }
 
+if (isParticipant) {
+  statusLines.push(...getEquipmentPatternResults(item));
+}
+
 const penalty =
   typeof gameConfig.eliminationPenalty === "string"
     ? gameConfig.eliminationPenalty.trim()
@@ -2253,16 +2257,62 @@ function renderStats() {
   }
 }
 
+function getEquipmentPatternResults(participant) {
+  if (
+    !Array.isArray(participant.equipment) ||
+    participant.equipment.length === 0
+  ) {
+    return [];
+  }
+
+  const discarded = new Set(
+    (Array.isArray(participant.equipmentHistory)
+      ? participant.equipmentHistory
+      : []
+    )
+      .map(record => record?.equipment)
+      .filter(Boolean)
+  );
+
+  const results = [];
+
+  if (discarded.has("胸罩") && discarded.has("上衣")) {
+    results.push("露奶");
+  }
+
+  if (
+    discarded.has("內褲") &&
+    (discarded.has("裙子") || discarded.has("褲子"))
+  ) {
+    results.push("露下體");
+  }
+
+  return results;
+}
+
 function getParticipantResultLines(participant, penalty) {
   const lines = [];
+
   if (participant.eliminated) lines.push("淘汰！");
-  if (Array.isArray(participant.equipment) && participant.equipment.length === 0) {
+
+  if (
+    Array.isArray(participant.equipment) &&
+    participant.equipment.length === 0
+  ) {
     lines.push("全裸");
   }
+
+  lines.push(...getEquipmentPatternResults(participant));
+
   if (participant.eliminated && penalty) lines.push(penalty);
-  if (participant.pendingEquipmentLoss && participant.equipment?.length > 0) {
+
+  if (
+    participant.pendingEquipmentLoss &&
+    participant.equipment?.length > 0
+  ) {
     lines.push("剩餘衣物");
   }
+
   return lines;
 }
 
