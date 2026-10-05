@@ -2299,7 +2299,7 @@ function getParticipantResultLines(participant, penalty) {
     Array.isArray(participant.equipment) &&
     participant.equipment.length === 0
   ) {
-    lines.push("全裸");
+    lines.push("脫光全裸");
   }
 
   lines.push(...getEquipmentPatternResults(participant));
