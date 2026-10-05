@@ -81,7 +81,7 @@ if (item.eliminated) {
 }
 
 if (isParticipant && !item.equipment.length) {
-  statusLines.push("全裸");
+  statusLines.push("脫光全裸");
 }
 
 if (isParticipant) {
@@ -2257,7 +2257,7 @@ function renderStats() {
   }
 }
 
-function getEquipmentPatternResults(participant) {
+function getEquipmentPatternResults(participant, equipmentHistory) {
   if (
     !Array.isArray(participant.equipment) ||
     participant.equipment.length === 0
@@ -2265,11 +2265,14 @@ function getEquipmentPatternResults(participant) {
     return [];
   }
 
-  const discarded = new Set(
-    (Array.isArray(participant.equipmentHistory)
+  const history = Array.isArray(equipmentHistory)
+    ? equipmentHistory
+    : Array.isArray(participant.equipmentHistory)
       ? participant.equipmentHistory
-      : []
-    )
+      : [];
+
+  const discarded = new Set(
+    history
       .map(record => record?.equipment)
       .filter(Boolean)
   );
@@ -2290,7 +2293,11 @@ function getEquipmentPatternResults(participant) {
   return results;
 }
 
-function getParticipantResultLines(participant, penalty) {
+function getParticipantResultLines(
+  participant,
+  penalty,
+  equipmentHistory
+) {
   const lines = [];
 
   if (participant.eliminated) lines.push("淘汰！");
@@ -2299,10 +2306,12 @@ function getParticipantResultLines(participant, penalty) {
     Array.isArray(participant.equipment) &&
     participant.equipment.length === 0
   ) {
-    lines.push("全裸");
+    lines.push("脫光全裸");
   }
 
-  lines.push(...getEquipmentPatternResults(participant));
+  lines.push(
+    ...getEquipmentPatternResults(participant, equipmentHistory)
+  );
 
   if (participant.eliminated && penalty) lines.push(penalty);
 
@@ -2346,6 +2355,7 @@ function freezeAndSummarizeTournament() {
           latestSnapshot: null,
           latestParticipant: null,
           latestPenalty: ""
+          equipmentHistory: []
         };
         aggregateByParticipant.set(key, aggregate);
       }
@@ -2358,6 +2368,11 @@ function freezeAndSummarizeTournament() {
       aggregate.latestParticipant = participant;
       aggregate.latestPenalty =
         snapshot.gameConfig?.eliminationPenalty || "";
+if (Array.isArray(participant.equipmentHistory)) {
+  aggregate.equipmentHistory.push(
+    ...participant.equipmentHistory
+  );
+}
 
       const status = getParticipantResultLines(
         participant,
@@ -2387,8 +2402,11 @@ function freezeAndSummarizeTournament() {
 
   const totals = Array.from(aggregateByParticipant.values()).map(aggregate => {
     const finalStatus = getParticipantResultLines(
-      aggregate.latestParticipant,
-      aggregate.latestPenalty
+      const finalStatus = getParticipantResultLines(
+  aggregate.latestParticipant,
+  aggregate.latestPenalty,
+  aggregate.equipmentHistory
+);
     );
     const rate = calculateActualWinRate(aggregate);
     return [
