@@ -81,7 +81,7 @@ if (item.eliminated) {
 }
 
 if (isParticipant && !item.equipment.length) {
-  statusLines.push("全裸");
+  statusLines.push("脫光全裸");
 }
 
 if (isParticipant) {
