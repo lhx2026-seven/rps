@@ -63,75 +63,87 @@ function renderStatsTable(
 
     if (isParticipant) {
       const discardOrder = Array.isArray(item.equipmentHistory)
-        ? item.equipmentHistory.map(record => record.equipment).filter(Boolean)
+        ? item.equipmentHistory
+            .map(record => record.equipment)
+            .filter(Boolean)
         : [];
+
       cells.push(
         `${item.equipment.length}/${item.initialEquipment.length}`,
         [
           item.equipment.join("、") || "無",
-          `(脫掉順序：${discardOrder.join("、") || "無"})`
+          `(拋棄順序：${discardOrder.join("、") || "無"})`
         ]
       );
     }
 
-const statusLines = [];
+    const statusLines = [];
 
-if (item.eliminated) {
-  statusLines.push("淘汰！");
-}
+    if (item.eliminated) {
+      statusLines.push("淘汰！");
+    }
 
-if (isParticipant && !item.equipment.length) {
-  statusLines.push("脫光全裸");
-}
+    if (isParticipant && !item.equipment.length) {
+      statusLines.push(
+        isHeadcountFrozen(item) ? "全拋凍結" : "脫光全裸"
+      );
+    }
 
-if (isParticipant) {
-  statusLines.push(...getEquipmentPatternResults(item));
-}
+    if (isParticipant) {
+      statusLines.push(
+        ...getEquipmentPatternResults(
+          item,
+          getAccumulatedEquipmentHistory(item)
+        )
+      );
+    }
 
-const penalty =
-  typeof gameConfig.eliminationPenalty === "string"
-    ? gameConfig.eliminationPenalty.trim()
-    : "";
+    const penalty =
+      typeof gameConfig.eliminationPenalty === "string"
+        ? gameConfig.eliminationPenalty.trim()
+        : "";
 
-if (item.eliminated && penalty) {
-  statusLines.push(`${penalty}`);
-}
+    if (item.eliminated && penalty) {
+      statusLines.push(penalty);
+    }
 
-if (
-  isParticipant &&
-  item.pendingEquipmentLoss &&
-  item.equipment.length > 0
-) {
-  statusLines.push("剩餘衣物");
-}
+    if (
+      isParticipant &&
+      item.pendingEquipmentLoss &&
+      item.equipment.length > 0
+    ) {
+      statusLines.push("剩餘衣物");
+    }
 
-cells.push(
-  getThrowHistoryText(item, isParticipant),
-  statusLines
-);
+    cells.push(
+      getThrowHistoryText(item, isParticipant),
+      statusLines
+    );
 
-cells.forEach(value => {
-  const cell = element("td", "");
+    cells.forEach(value => {
+      const cell = element("td", "");
 
-  if (Array.isArray(value)) {
-    value.forEach((line, index) => {
-      if (index > 0) {
-        cell.appendChild(document.createElement("br"));
+      if (Array.isArray(value)) {
+        value.forEach((line, index) => {
+          if (index > 0) {
+            cell.appendChild(document.createElement("br"));
+          }
+
+          cell.appendChild(document.createTextNode(line));
+        });
+      } else {
+        cell.textContent = String(value ?? "");
       }
 
-      cell.appendChild(document.createTextNode(line));
+      row.appendChild(cell);
     });
-  } else {
-    cell.textContent = String(value ?? "");
-  }
-
-  row.appendChild(cell);
-});
-
 
     body.appendChild(row);
   });
 
+  table.append(head, body);
+  statsList.appendChild(table);
+}
   table.append(head, body);
   statsList.appendChild(table);
 }
@@ -1333,6 +1345,32 @@ function renderOperationPanel() {
   renderEquipmentDiscardPanel();
 }
 
+function isHeadcountFrozen(participant) {
+  if (
+    gameConfig.eliminationMode !== "equipment" ||
+    gameConfig.teamMode
+  ) {
+    return false;
+  }
+
+  ensureEquipment(participant);
+  return participant.equipment.length === 0;
+}
+
+function isParticipantEligibleToAct(participant) {
+  if (participant.eliminated || isHeadcountFrozen(participant)) {
+    return false;
+  }
+
+  if (Array.isArray(headcountReplayParticipantIds)) {
+    return headcountReplayParticipantIds.some(
+      id => Number(id) === Number(participant.id)
+    );
+  }
+
+  return true;
+}
+
 function renderNormalOperation() {
   const activeParticipants =
     participants.filter(function (participant) {
@@ -1585,9 +1623,7 @@ if (hasPendingEquipment()) {
 
 async function startNormalRound() {
   const activeParticipants =
-    participants.filter(function (participant) {
-      return !participant.eliminated;
-    });
+    participants.filter(isParticipantEligibleToAct);
 
   if (activeParticipants.length < 2) {
     alert("剩餘參賽者不足 2 人。");
@@ -1602,6 +1638,21 @@ async function startNormalRound() {
       alert(`${participant.name} 尚未選擇出拳。`);
       return;
     }
+  }
+
+  if (
+    gameConfig.eliminationMode === "equipment" &&
+    !gameConfig.teamMode
+  ) {
+    headcountHandTransaction = {
+      participants: copyObject(participants),
+      teams: copyObject(teams),
+      roundNumber,
+      roundHistory: copyObject(roundHistory)
+    };
+  } else {
+    headcountHandTransaction = null;
+    headcountReplayParticipantIds = null;
   }
 
   roundNumber++;
@@ -1635,11 +1686,8 @@ async function startNormalRound() {
     round: roundNumber,
     throws: copyObject(throws),
     results: copyObject(results),
-
     eliminated: newlyEliminated.map(
-      function (participant) {
-        return participant.id;
-      }
+      participant => participant.id
     )
   });
 
@@ -1647,7 +1695,11 @@ async function startNormalRound() {
     appendEquipmentDiscardMessage
   );
 
-  checkGameEnd();
+  if (headcountHandTransaction) {
+    await resolveHeadcountHandAfterDiscards();
+  } else {
+    checkGameEnd();
+  }
 }
 
 function generateNormalThrows(activeParticipants) {
@@ -1804,6 +1856,153 @@ function eliminateFullyStrippedParticipants() {
     participant.eliminated = true;
   });
   return stripped;
+}
+
+function assessHeadcountOutcome(
+  beforeParticipants,
+  afterParticipants,
+  limit
+) {
+  const beforeById = new Map(
+    beforeParticipants.map(participant => [
+      Number(participant.id),
+      participant
+    ])
+  );
+
+  const stripped = afterParticipants.filter(participant => {
+    return (
+      !participant.eliminated &&
+      Array.isArray(participant.equipment) &&
+      participant.equipment.length === 0
+    );
+  });
+
+  const replayCandidates = stripped.filter(participant => {
+    const before = beforeById.get(Number(participant.id));
+
+    return (
+      before &&
+      !before.eliminated &&
+      Array.isArray(before.equipment) &&
+      before.equipment.length > 0 &&
+      !participant.eliminated &&
+      Array.isArray(participant.equipment) &&
+      participant.equipment.length === 0
+    );
+  });
+
+  return {
+    strippedCount: stripped.length,
+    replayCandidates,
+    exceedsLimit: stripped.length > limit
+  };
+}
+
+async function resolveHeadcountHandAfterDiscards() {
+  const transaction = headcountHandTransaction;
+
+  if (
+    !transaction ||
+    gameConfig.eliminationMode !== "equipment" ||
+    gameConfig.teamMode ||
+    hasPendingEquipment()
+  ) {
+    return;
+  }
+
+  const limit = readPositiveInteger({
+    value: gameConfig.emptyEquipmentLimit
+  });
+
+  const outcome = assessHeadcountOutcome(
+    transaction.participants,
+    participants,
+    limit
+  );
+
+  if (
+    outcome.exceedsLimit &&
+    outcome.replayCandidates.length >= 2
+  ) {
+    const replayCandidates = outcome.replayCandidates;
+
+    participants = copyObject(transaction.participants);
+    teams = copyObject(transaction.teams);
+    roundNumber = transaction.roundNumber;
+    roundHistory = copyObject(transaction.roundHistory);
+
+    currentEquipmentDiscards = [];
+    playerThrows = {};
+    headcountHandTransaction = null;
+
+    headcountReplayParticipantIds =
+      replayCandidates.map(participant => participant.id);
+
+    resultList.innerHTML = "";
+    resultPanel.classList.remove("hidden");
+
+    renderParticipantSettings();
+    renderOperationPanel();
+    renderStats();
+
+    saveCurrentTournamentRoundSnapshot();
+    await saveGameState();
+
+    alert(
+      `本把會超過「${limit} 人全拋」的淘汰門檻，` +
+      "本把結果已作廢。請只有剛才需要拋棄最後一件裝備的參賽者重猜。"
+    );
+
+    return;
+  }
+
+  const eliminatedNow =
+    eliminateFullyStrippedParticipants();
+
+  headcountHandTransaction = null;
+  headcountReplayParticipantIds = null;
+
+  const history = roundHistory.findLast
+    ? roundHistory.findLast(item => item.round === roundNumber)
+    : [...roundHistory]
+        .reverse()
+        .find(item => item.round === roundNumber);
+
+  if (history && eliminatedNow.length) {
+    if (!Array.isArray(history.eliminated)) {
+      history.eliminated = [];
+    }
+
+    history.eliminated.push(
+      ...eliminatedNow.map(participant => participant.id)
+    );
+
+    history.eliminationPenalty =
+      gameConfig.eliminationPenalty || "";
+
+    history.penalty =
+      gameConfig.eliminationPenalty || "";
+
+    const message = element(
+      "div",
+      "淘汰者：" +
+        eliminatedNow.map(participant => participant.name).join("、"),
+      "danger"
+    );
+
+    message.style.marginTop = "15px";
+    resultList.appendChild(message);
+  }
+
+  renderParticipantSettings();
+  renderOperationPanel();
+  renderStats();
+
+  saveCurrentTournamentRoundSnapshot();
+  await saveGameState();
+
+  checkGameEnd();
 }
 
 function renderNormalResults(
@@ -2257,7 +2456,7 @@ function renderStats() {
   }
 }
 
-function getEquipmentPatternResults(participant) {
+function getEquipmentPatternResults(participant, equipmentHistory) {
   if (
     !Array.isArray(participant.equipment) ||
     participant.equipment.length === 0
@@ -2265,11 +2464,14 @@ function getEquipmentPatternResults(participant) {
     return [];
   }
 
-  const discarded = new Set(
-    (Array.isArray(participant.equipmentHistory)
+  const history = Array.isArray(equipmentHistory)
+    ? equipmentHistory
+    : Array.isArray(participant.equipmentHistory)
       ? participant.equipmentHistory
-      : []
-    )
+      : [];
+
+  const discarded = new Set(
+    history
       .map(record => record?.equipment)
       .filter(Boolean)
   );
@@ -2290,30 +2492,74 @@ function getEquipmentPatternResults(participant) {
   return results;
 }
 
-function getParticipantResultLines(participant, penalty) {
-  const lines = [];
+function getAccumulatedEquipmentHistory(participant) {
+  const participantKey =
+    participant.participantKey || `legacy:${participant.name}`;
 
-  if (participant.eliminated) lines.push("淘汰！");
+  const historyRecords = [];
+  const seen = new Set();
 
-  if (
-    Array.isArray(participant.equipment) &&
-    participant.equipment.length === 0
+  function addParticipantHistory(
+    historyParticipant,
+    tournamentRound
   ) {
-    lines.push("脫光全裸");
+    const historyKey =
+      historyParticipant.participantKey ||
+      `legacy:${historyParticipant.name}`;
+
+    if (
+      historyKey !== participantKey ||
+      !Array.isArray(historyParticipant.equipmentHistory)
+    ) {
+      return;
+    }
+
+    historyParticipant.equipmentHistory.forEach(
+      (record, index) => {
+        if (!record?.equipment) return;
+
+        const uniqueKey = record.timestamp
+          ? [
+              "time",
+              tournamentRound,
+              record.timestamp,
+              record.round,
+              record.equipment
+            ].join(":")
+          : [
+              "legacy",
+              tournamentRound,
+              record.round,
+              record.participantId,
+              record.equipment,
+              index
+            ].join(":");
+
+        if (seen.has(uniqueKey)) return;
+
+        seen.add(uniqueKey);
+        historyRecords.push(record);
+      }
+    );
   }
 
-  lines.push(...getEquipmentPatternResults(participant));
+  tournamentRounds.forEach(snapshot => {
+    (snapshot.participants || []).forEach(historyParticipant => {
+      addParticipantHistory(
+        historyParticipant,
+        snapshot.tournamentRoundNumber
+      );
+    });
+  });
 
-  if (participant.eliminated && penalty) lines.push(penalty);
+  participants.forEach(historyParticipant => {
+    addParticipantHistory(
+      historyParticipant,
+      tournamentRoundNumber
+    );
+  });
 
-  if (
-    participant.pendingEquipmentLoss &&
-    participant.equipment?.length > 0
-  ) {
-    lines.push("剩餘衣物");
-  }
-
-  return lines;
+  return historyRecords;
 }
 
 function freezeAndSummarizeTournament() {
