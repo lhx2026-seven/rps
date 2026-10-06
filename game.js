@@ -144,9 +144,6 @@ function renderStatsTable(
   table.append(head, body);
   statsList.appendChild(table);
 }
-  table.append(head, body);
-  statsList.appendChild(table);
-}
 
 function getThrowHistoryText(item, isParticipant) {
   const hands = [];
