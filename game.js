@@ -2489,10 +2489,13 @@ function getEquipmentPatternResults(participant, equipmentHistory) {
   return results;
 }
 
-function getAccumulatedEquipmentHistory(participant) {
+function getAccumulatedEquipmentHistory(
+  participant,
+  throughTournamentRound = tournamentRoundNumber
+) {
   const participantKey =
     participant.participantKey || `legacy:${participant.name}`;
-
+  const cutoff = Number(throughTournamentRound);
   const historyRecords = [];
   const seen = new Set();
 
@@ -2511,36 +2514,44 @@ function getAccumulatedEquipmentHistory(participant) {
       return;
     }
 
-    historyParticipant.equipmentHistory.forEach(
-      (record, index) => {
-        if (!record?.equipment) return;
+    historyParticipant.equipmentHistory.forEach((record, index) => {
+      if (!record?.equipment) return;
 
-        const uniqueKey = record.timestamp
-          ? [
-              "time",
-              tournamentRound,
-              record.timestamp,
-              record.round,
-              record.equipment
-            ].join(":")
-          : [
-              "legacy",
-              tournamentRound,
-              record.round,
-              record.participantId,
-              record.equipment,
-              index
-            ].join(":");
+      const uniqueKey = record.timestamp
+        ? [
+            "time",
+            tournamentRound,
+            record.timestamp,
+            record.round,
+            record.equipment
+          ].join(":")
+        : [
+            "legacy",
+            tournamentRound,
+            record.round,
+            record.participantId,
+            record.equipment,
+            index
+          ].join(":");
 
-        if (seen.has(uniqueKey)) return;
+      if (seen.has(uniqueKey)) return;
 
-        seen.add(uniqueKey);
-        historyRecords.push(record);
-      }
-    );
+      seen.add(uniqueKey);
+      historyRecords.push(record);
+    });
   }
 
   tournamentRounds.forEach(snapshot => {
+    const snapshotRound =
+      Number(snapshot.tournamentRoundNumber);
+
+    if (
+      Number.isFinite(cutoff) &&
+      snapshotRound > cutoff
+    ) {
+      return;
+    }
+
     (snapshot.participants || []).forEach(historyParticipant => {
       addParticipantHistory(
         historyParticipant,
@@ -2549,14 +2560,63 @@ function getAccumulatedEquipmentHistory(participant) {
     });
   });
 
-  participants.forEach(historyParticipant => {
-    addParticipantHistory(
-      historyParticipant,
-      tournamentRoundNumber
-    );
-  });
+  if (
+    !Number.isFinite(cutoff) ||
+    Number(tournamentRoundNumber) <= cutoff
+  ) {
+    participants.forEach(historyParticipant => {
+      addParticipantHistory(
+        historyParticipant,
+        tournamentRoundNumber
+      );
+    });
+  }
 
   return historyRecords;
+}
+
+function getParticipantResultLines(
+  participant,
+  penalty,
+  equipmentHistory
+) {
+  const lines = [];
+
+  if (participant.eliminated) {
+    lines.push("淘汰！");
+  }
+
+  if (Array.isArray(participant.equipment)) {
+    if (participant.equipment.length === 0) {
+      lines.push(
+        isHeadcountFrozen(participant)
+          ? "全拋凍結"
+          : "脫光全裸"
+      );
+    }
+
+    lines.push(
+      ...getEquipmentPatternResults(
+        participant,
+        Array.isArray(equipmentHistory)
+          ? equipmentHistory
+          : getAccumulatedEquipmentHistory(participant)
+      )
+    );
+  }
+
+  if (participant.eliminated && penalty) {
+    lines.push(penalty);
+  }
+
+  if (
+    participant.pendingEquipmentLoss &&
+    participant.equipment?.length > 0
+  ) {
+    lines.push("剩餘衣物");
+  }
+
+  return lines;
 }
 
 function freezeAndSummarizeTournament() {
@@ -2603,9 +2663,13 @@ function freezeAndSummarizeTournament() {
         snapshot.gameConfig?.eliminationPenalty || "";
 
       const status = getParticipantResultLines(
+      participant,
+      snapshot.gameConfig?.eliminationPenalty || "",
+      getAccumulatedEquipmentHistory(
         participant,
-        snapshot.gameConfig?.eliminationPenalty || ""
-      );
+        snapshot.tournamentRoundNumber
+  )
+);
 
       const equipmentLeft = Array.isArray(participant.equipment)
         ? participant.equipment.join("、") || "無"
@@ -2630,9 +2694,13 @@ function freezeAndSummarizeTournament() {
 
   const totals = Array.from(aggregateByParticipant.values()).map(aggregate => {
     const finalStatus = getParticipantResultLines(
-      aggregate.latestParticipant,
-      aggregate.latestPenalty
-    );
+  aggregate.latestParticipant,
+  aggregate.latestPenalty,
+  getAccumulatedEquipmentHistory(
+    aggregate.latestParticipant,
+    aggregate.latestSnapshot?.tournamentRoundNumber
+  )
+);
     const rate = calculateActualWinRate(aggregate);
     return [
       aggregate.name,
