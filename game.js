@@ -85,7 +85,7 @@ function renderStatsTable(
 
     if (isParticipant && !item.equipment.length) {
       statusLines.push(
-        isHeadcountFrozen(item) ? "全拋凍結" : "脫光全裸"
+        isHeadcountFrozen(item) ? "脫光全裸" : "脫光全裸"
       );
     }
 
@@ -2592,7 +2592,7 @@ function getParticipantResultLines(
     if (participant.equipment.length === 0) {
       lines.push(
         isHeadcountFrozen(participant)
-          ? "全拋凍結"
+          ? "脫光全裸"
           : "脫光全裸"
       );
     }
