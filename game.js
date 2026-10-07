@@ -56,7 +56,7 @@ function renderStatsTable(items, isParticipant, withTeam = false) {
 
       cells.push(`${item.equipment.length}/${item.initialEquipment.length}`, [
         item.equipment.join("、") || "無",
-        `(拋棄順序：${discardOrder.join("、") || "無"})`,
+        `(脫衣順序：${discardOrder.join("、") || "無"})`,
       ]);
     }
 
@@ -1694,8 +1694,8 @@ async function resolveHeadcountHandAfterDiscards() {
     await saveGameState();
 
     alert(
-      `本把會超過「${limit} 人全拋」的淘汰門檻，` +
-        "本把結果已作廢。請只有剛才需要拋棄最後一件裝備的參賽者重猜。",
+      `這把超過「${limit} 人」的淘汰門檻，` +
+        "需加猜一把，才能決定誰要脫最後一件。",
     );
 
     return;
@@ -3768,7 +3768,7 @@ async function resetCurrentRound() {
   if (
     !window.confirm(
       "確定重設本回合？\n\n" +
-        "將清除本回合勝負、出拳及拋棄紀錄，恢復各人的起始衣物；其他回合不受影響。",
+        "將清除本回合出拳、勝負、脫衣紀錄，各參賽者恢復原裝；其他回合不受影響。",
     )
   ) {
     return;
@@ -4455,8 +4455,8 @@ function renderEquipmentDiscardPanel() {
     element(
       "h3",
       gameConfig.equipmentRule === "unlimited"
-        ? "落敗者請至少拋棄一件衣物，可繼續逐件拋棄"
-        : "請選擇落敗者需脫掉的衣物",
+        ? "落敗者至少脫一件。"
+        : "請選擇落敗者需脫掉的衣物。",
     ),
   );
 
@@ -4464,7 +4464,7 @@ function renderEquipmentDiscardPanel() {
     element(
       "div",
       gameConfig.equipmentRule === "unlimited"
-        ? "每次拋棄後可依目前順序繼續選擇；至少拋棄一件後，按「完成拋棄」才能開始下一把。"
+        ? "依序選擇要脫什麼，至少脫一件，才可以按「夠了」以進行下一把。"
         : "確認脫掉後，才可再進行下一把。",
       "small",
     ),
