@@ -1,0 +1,22 @@
+/* ===== Gamma 日本祭典紅白幕背景 ===== */
+
+html,
+body {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+
+  /* 紅白粗直條 */
+  background:
+    repeating-linear-gradient(
+      90deg,
+      #d71920 0px,
+      #d71920 140px,
+      #fffaf2 140px,
+      #fffaf2 280px
+    );
+
+  background-attachment: fixed;
+}
