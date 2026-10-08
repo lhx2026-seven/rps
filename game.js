@@ -2423,7 +2423,7 @@ function renderTeamResults(
 
     if (gameConfig.eliminationPenalty) {
       const penalty = document.createElement("div");
-      penalty.style.marginTop = "8px";
+      penalty.style.marginTop = "15px";
 
       penalty.textContent =
         `（${gameConfig.eliminationPenalty}）`;
