@@ -1,4 +1,4 @@
-/* ===== Gamma 日本祭典紅白幕背景 ===== */
+/* ===== 紅白幕背景 ===== */
 
 html,
 body {
@@ -13,10 +13,28 @@ body {
     repeating-linear-gradient(
       90deg,
       #d71920 0px,
-      #d71920 140px,
-      #fffaf2 140px,
-      #fffaf2 280px
+      #d71920 70px,
+      #fffaf2 70px,
+      #fffaf2 140px
     );
 
   background-attachment: fixed;
+}
+
+/* ===== 遊戲大標 ===== */
+
+h1 {
+  color: #f2b8a2; 
+  -webkit-text-stroke: 5px #000;
+  paint-order: stroke fill;
+
+  font-weight: 1000;
+  font-size: 60px;
+  letter-spacing: 5px;
+}
+
+/* ===== 按鍵 ===== */
+button {
+  font-size: 12px;
+  padding: 10px 20px;
 }
