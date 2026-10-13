@@ -1950,7 +1950,7 @@ async function resolveHeadcountHandAfterDiscards() {
 
     alert(
       `本把會超過「${limit} 人」的淘汰門檻，` +
-      "本把結果已作廢。請只有剛才需要脫掉最後一件裝備的參賽者重猜。"
+      "本把結果已作廢。請只有剛才需要脫掉最後一件的參賽者重猜。"
     );
 
     return;
