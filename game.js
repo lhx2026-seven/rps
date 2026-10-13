@@ -2631,68 +2631,219 @@ function freezeAndSummarizeTournament() {
 
   const aggregateByParticipant = new Map();
 
-  const output = tournamentRounds.map(snapshot => {
-    const title = getTournamentRoundDisplayName(snapshot);
-    const people = (snapshot.participants || []).map(participant => {
-      const roundStats = getSnapshotParticipantRoundStats(
-        snapshot,
-        participant
-      );
-      const key = participant.participantKey ||
-        `legacy:${participant.name}`;
-      let aggregate = aggregateByParticipant.get(key);
+const output = tournamentRounds.map(snapshot => {
+  const title = getTournamentRoundDisplayName(snapshot);
+  const roundParticipants = snapshot.participants || [];
+  const roundTeams = snapshot.teams || [];
+  const history = snapshot.roundHistory || [];
 
-      if (!aggregate) {
-        aggregate = {
-          name: participant.name,
-          wins: 0,
-          losses: 0,
-          ties: 0,
-          latestSnapshot: null,
-          latestParticipant: null,
-          latestPenalty: ""
-        };
-        aggregateByParticipant.set(key, aggregate);
+  const participantById = new Map(
+    roundParticipants.map(participant => [
+      String(participant.id),
+      participant
+    ])
+  );
+
+  const teamById = new Map(
+    roundTeams.map(team => [
+      String(team.id),
+      team
+    ])
+  );
+
+  // 蒐集這個回合內實際出拳的對戰紀錄。
+  const matchLines = history
+    .filter(record => record.throws && record.results)
+    .map(record => {
+      const competitors = [];
+
+      if (record.mode === "team") {
+        Object.keys(record.throws).forEach(teamId => {
+          const team = teamById.get(String(teamId));
+          const representativeId =
+            record.representatives?.[`team-${teamId}`];
+          const representative =
+            participantById.get(String(representativeId));
+
+          const label = [
+            team?.name ? `${team.name}隊` : "",
+            representative?.name || ""
+          ].join("");
+
+          if (label) {
+            competitors.push({
+              label,
+              result: record.results?.[teamId]
+            });
+          }
+        });
+      } else {
+        Object.keys(record.throws).forEach(participantId => {
+          const participant =
+            participantById.get(String(participantId));
+
+          if (participant) {
+            competitors.push({
+              label: participant.name,
+              result: record.results?.[participantId]
+            });
+          }
+        });
       }
 
-      aggregate.name = participant.name || aggregate.name;
-      aggregate.wins += roundStats.wins;
-      aggregate.losses += roundStats.losses;
-      aggregate.ties += roundStats.ties;
-      aggregate.latestSnapshot = snapshot;
-      aggregate.latestParticipant = participant;
-      aggregate.latestPenalty =
-        snapshot.gameConfig?.eliminationPenalty || "";
+      const winners = competitors
+        .filter(item => item.result === "win")
+        .map(item => item.label);
 
-      const status = getParticipantResultLines(
-      participant,
-      snapshot.gameConfig?.eliminationPenalty || "",
-      getAccumulatedEquipmentHistory(
-        participant,
-        snapshot.tournamentRoundNumber
-  )
-);
+      const losers = competitors
+        .filter(item => item.result === "loss")
+        .map(item => item.label);
 
-      const equipmentLeft = Array.isArray(participant.equipment)
-        ? participant.equipment.join("、") || "無"
-        : "未記錄";
-      const discardOrder = Array.isArray(participant.equipmentHistory)
-        ? participant.equipmentHistory
-            .map(record => record.equipment)
-            .filter(Boolean)
-            .join(" → ") || "無"
-        : "未記錄";
+      const tied = competitors
+        .filter(item => item.result === "tie")
+        .map(item => item.label);
 
-      return [
-        participant.name,
-        `勝 ${roundStats.wins}／敗 ${roundStats.losses}／平 ${roundStats.ties}`,
-        `剩餘衣物：${equipmentLeft}`,
-        `脫掉順序：${discardOrder}`,
-        `結果：${status.join("、") || "—"}`
-      ].join("\t");
+      const handLabel = record.round
+        ? `第 ${record.round} 把`
+        : "本把";
+
+      if (winners.length && losers.length) {
+        return `${title}（${handLabel}），由${winners.join("、")}對上${losers.join("、")}。`;
+      }
+
+      if (tied.length) {
+        return `${title}（${handLabel}），由${tied.join("、")}對戰，結果平手。`;
+      }
+
+      if (competitors.length) {
+        return `${title}（${handLabel}），參賽者為${competitors.map(item => item.label).join("、")}。`;
+      }
+
+      return "";
+    })
+    .filter(Boolean);
+
+  // 按參賽者整理這個回合的脫衣紀錄與處罰。
+  const discardsByParticipant = new Map();
+  const eliminatedIds = new Set();
+  const eliminatedTeamIds = new Set();
+
+  history.forEach(record => {
+    (record.equipmentDiscards || []).forEach(discard => {
+      const key = String(
+        discard.participantId ??
+        discard.participantKey ??
+        ""
+      );
+
+      if (!key) return;
+
+      if (!discardsByParticipant.has(key)) {
+        discardsByParticipant.set(key, []);
+      }
+
+      discardsByParticipant.get(key).push(discard);
     });
-    return [`【${title}】`, ...people].join("\n");
-  }).join("\n\n");
+
+    (record.eliminated || []).forEach(id => {
+      eliminatedIds.add(String(id));
+    });
+
+    (record.eliminatedParticipants || []).forEach(id => {
+      eliminatedIds.add(String(id));
+    });
+
+    (record.eliminatedTeams || []).forEach(id => {
+      eliminatedTeamIds.add(String(id));
+    });
+  });
+
+  // 若隊伍被淘汰，將該隊參賽者一併標記為接受處罰。
+  roundParticipants.forEach(participant => {
+    if (eliminatedTeamIds.has(String(participant.teamId))) {
+      eliminatedIds.add(String(participant.id));
+    }
+  });
+
+  const participantLines = roundParticipants.map(participant => {
+    const roundStats = getSnapshotParticipantRoundStats(
+      snapshot,
+      participant
+    );
+
+    const key = participant.participantKey ||
+      `legacy:${participant.name}`;
+
+    let aggregate = aggregateByParticipant.get(key);
+
+    if (!aggregate) {
+      aggregate = {
+        name: participant.name,
+        wins: 0,
+        losses: 0,
+        ties: 0,
+        latestSnapshot: null,
+        latestParticipant: null,
+        latestPenalty: "",
+        equipmentHistory: []
+      };
+
+      aggregateByParticipant.set(key, aggregate);
+    }
+
+    aggregate.name = participant.name || aggregate.name;
+    aggregate.wins += roundStats.wins;
+    aggregate.losses += roundStats.losses;
+    aggregate.ties += roundStats.ties;
+    aggregate.latestSnapshot = snapshot;
+    aggregate.latestParticipant = participant;
+    aggregate.latestPenalty =
+      snapshot.gameConfig?.eliminationPenalty || "";
+
+    if (Array.isArray(participant.equipmentHistory)) {
+      aggregate.equipmentHistory.push(
+        ...participant.equipmentHistory
+      );
+    }
+
+    const discardRecords =
+      discardsByParticipant.get(String(participant.id)) || [];
+
+    const discardedItems = discardRecords
+      .map(record => record.equipment)
+      .filter(Boolean);
+
+    const discardText = discardedItems.length
+      ? `脫掉了${discardedItems.join("、")}`
+      : "本回合未脫衣物";
+
+    const equipmentLeft = Array.isArray(participant.equipment)
+      ? participant.equipment
+      : [];
+
+    const clothingText = equipmentLeft.length
+      ? `剩下${equipmentLeft.join("、")}`
+      : "最終全裸";
+
+    const wasEliminated = eliminatedIds.has(
+      String(participant.id)
+    );
+
+    const penalty =
+      wasEliminated &&
+      snapshot.gameConfig?.eliminationPenalty
+        ? `，接受${snapshot.gameConfig.eliminationPenalty}的處罰`
+        : "";
+
+    return `${participant.name}在${title}${discardText}，${clothingText}${penalty}。`;
+  });
+
+  return [
+    `【${title}】`,
+    ...matchLines,
+    ...participantLines
+  ].join("\n");
+}).join("\n\n");
 
   const totals = Array.from(aggregateByParticipant.values()).map(aggregate => {
     const finalStatus = getParticipantResultLines(
