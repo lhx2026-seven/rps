@@ -2708,11 +2708,11 @@ const output = tournamentRounds.map(snapshot => {
         : "本把";
 
       if (winners.length && losers.length) {
-        return `${title}（${handLabel}），由${winners.join("、")}對上${losers.join("、")}。`;
+        return `${title}（${handLabel}），${winners.join("、")}擊敗${losers.join("、")}。`;
       }
 
       if (tied.length) {
-        return `${title}（${handLabel}），由${tied.join("、")}對戰，結果平手。`;
+        return `${title}（${handLabel}），${tied.join("、")}打成平手。`;
       }
 
       if (competitors.length) {
