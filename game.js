@@ -1578,6 +1578,8 @@ if (hasPendingEquipment()) {
 }
 
   roundBusy = true;
+  const settle = document.getElementById("settleEquipmentBtn");
+  if (settle) settle.disabled = true;
   currentEquipmentDiscards = [];
 
   const button =
@@ -4613,7 +4615,37 @@ function addStartButton() {
 
   deleteButton.disabled = roundBusy;
 
-  operationPanel.append(start, reset, deleteButton);
+  let settle = document.getElementById("settleEquipmentBtn");
+  if (!settle) {
+    settle = element("button", "結算");
+    settle.type = "button";
+    settle.id = "settleEquipmentBtn";
+    settle.style.marginLeft = "8px";
+    settle.addEventListener("click", settleEquipment);
+  }
+  settle.hidden = gameConfig.eliminationMode !== "none";
+  settle.disabled = roundBusy || hasPendingEquipment() || tournamentFrozen;
+
+  operationPanel.append(start, settle, reset, deleteButton);
+}
+
+async function settleEquipment() {
+  if (tournamentFrozen || roundBusy || hasPendingEquipment() ||
+      gameConfig.eliminationMode !== "none") return;
+
+  participants.forEach(participant => {
+    ensureEquipment(participant);
+    if (participant.eliminated || !participant.equipment.length) return;
+    participant.pendingEquipmentLoss = true;
+    participant.pendingEquipmentDiscards = 0;
+    participant.pendingEquipmentSettlement = true;
+  });
+
+  renderParticipantSettings();
+  renderOperationPanel();
+  renderStats();
+  saveCurrentTournamentRoundSnapshot();
+  await saveGameState();
 }
 
 async function resetCurrentRound() {
@@ -5025,6 +5057,7 @@ function ensureEquipment(participant) {
 
   if (!participant.pendingEquipmentLoss) {
     participant.pendingEquipmentDiscards = 0;
+    participant.pendingEquipmentSettlement = false;
   }
 }
 
@@ -5055,6 +5088,11 @@ function legalEquipment(participant) {
   });
 }
 
+function isUnlimitedEquipmentDiscard(participant) {
+  return gameConfig.equipmentRule === "unlimited" ||
+    participant.pendingEquipmentSettlement;
+}
+
 function discardEquipment(participant, item) {
   if (
     !participant.pendingEquipmentLoss ||
@@ -5069,7 +5107,7 @@ function discardEquipment(participant, item) {
   participant.pendingEquipmentDiscards++;
 
   if (
-    gameConfig.equipmentRule !== "unlimited" ||
+    !isUnlimitedEquipmentDiscard(participant) ||
     participant.equipment.length === 0
   ) {
     participant.pendingEquipmentLoss = false;
@@ -5306,6 +5344,11 @@ function renderEquipmentDiscardPanel() {
       roundBusy || pending.length > 0;
   }
 
+  const settle = document.getElementById("settleEquipmentBtn");
+  if (settle) {
+    settle.disabled = roundBusy || pending.length > 0 || tournamentFrozen;
+  }
+
   if (!pending.length) {
     return;
   }
@@ -5319,8 +5362,8 @@ function renderEquipmentDiscardPanel() {
   panel.appendChild(
     element(
       "h3",
-      gameConfig.equipmentRule === "unlimited"
-        ? "落敗者請至少脫掉一件衣物，才可進行下一把。"
+      pending.some(isUnlimitedEquipmentDiscard)
+        ? "請選擇要脫掉的衣物，或按「夠了」完成。"
         : "請選擇落敗者需脫掉的衣物"
     )
   );
@@ -5328,8 +5371,8 @@ function renderEquipmentDiscardPanel() {
   panel.appendChild(
     element(
       "div",
-      gameConfig.equipmentRule === "unlimited"
-        ? "落敗者至少脫掉一件衣物，按「夠了」才能開始下一把。"
+      pending.some(isUnlimitedEquipmentDiscard)
+        ? "可連續脫多件，也可脫 0 件；按「夠了」完成。"
         : "確認脫掉後，才可再進行下一把。",
       "small"
     )
@@ -5340,7 +5383,7 @@ function renderEquipmentDiscardPanel() {
     box.style.marginTop = "14px";
     box.appendChild(element("strong", participant.name));
 
-    if (gameConfig.equipmentRule === "unlimited") {
+    if (isUnlimitedEquipmentDiscard(participant)) {
       box.appendChild(
         element(
           "div",
@@ -5447,20 +5490,13 @@ function renderEquipmentDiscardPanel() {
 
     box.appendChild(confirm);
 
-    if (gameConfig.equipmentRule === "unlimited") {
+    if (isUnlimitedEquipmentDiscard(participant)) {
       const finish = element("button", "夠了");
       finish.type = "button";
       finish.style.marginLeft = "8px";
-      finish.disabled =
-        roundBusy ||
-        (participant.pendingEquipmentDiscards || 0) < 1;
+      finish.disabled = roundBusy;
 
       finish.addEventListener("click", async () => {
-        if ((participant.pendingEquipmentDiscards || 0) < 1) {
-          alert("無限規則，輸一把至少要脫一件。");
-          return;
-        }
-
         participant.pendingEquipmentLoss = false;
         participant.pendingEquipmentDiscards = 0;
 
