@@ -48,3 +48,34 @@ button:disabled:hover {
   filter: grayscale(1);
   cursor: not-allowed;
 }
+
+/* ===== 三級標題 ===== */
+:root {
+  --title-large: 60px;
+  --title-medium: 24px;
+  --title-small: 16px;
+}
+
+h1 { font-size: var(--title-large); }
+h2 { font-size: var(--title-medium); }
+h3, h4, h5, h6,
+.setting-title,
+.participant-name,
+.inherit-box > strong,
+.operation-header strong,
+#equipmentDiscardPanel strong,
+#roundOutcomeSummary > strong {
+  font-size: var(--title-small);
+  font-weight: bold;
+}
+
+/* 保留內容原有分行，避免欄寬不足造成額外折行。 */
+#statsList {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+#statsList th,
+#statsList td {
+  white-space: nowrap;
+}
