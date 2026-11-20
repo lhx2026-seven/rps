@@ -51,14 +51,14 @@ button:disabled:hover {
 
 /* ===== 三級標題 ===== */
 :root {
-  --title-large: 60px;
-  --title-medium: 24px;
+  --title-large: 24px;
+  --title-medium: 20px;
   --title-small: 16px;
 }
 
-h1 { font-size: var(--title-large); }
-h2 { font-size: var(--title-medium); }
-h3, h4, h5, h6,
+h2 { font-size: var(--title-large); }
+h3 { font-size: var(--title-medium); }
+h4, h5, h6,
 .setting-title,
 .participant-name,
 .inherit-box > strong,
