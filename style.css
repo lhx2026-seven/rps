@@ -38,3 +38,13 @@ button {
   font-size: 12px;
   padding: 10px 20px;
 }
+
+button:disabled,
+button:disabled:hover {
+  background: #ddd !important;
+  color: #777 !important;
+  border-color: #bbb !important;
+  opacity: 1 !important;
+  filter: grayscale(1);
+  cursor: not-allowed;
+}
