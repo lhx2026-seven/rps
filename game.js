@@ -5462,7 +5462,7 @@ function renderEquipmentDiscardPanel() {
 
     box.appendChild(choices);
 
-    const confirm = element("button", "脫");
+    const confirm = element("button", "脫", "primary-btn");
     confirm.type = "button";
     confirm.disabled = roundBusy;
 
