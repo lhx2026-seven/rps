@@ -4515,58 +4515,32 @@ newParticipants.forEach(participant => {
 // ============================================================
 
 function checkGameEnd() {
-  if (!["loss", "equipment"].includes(gameConfig.eliminationMode)) return;
+  document.getElementById("roundOutcomeSummary")?.remove();
+  if (!isRoundStopped() || isFinalEquipmentSettlement()) return;
+
+  const summary = element("div");
+  summary.id = "roundOutcomeSummary";
+  summary.style.cssText = "margin-top:20px;padding:15px;border-radius:10px";
 
   if (gameConfig.teamMode) {
-    const activeTeams = teams.filter(
-      function (team) {
-        return !team.eliminated && participants.some(participant =>
-          participant.teamId === team.id && !participant.eliminated
-        );
-      }
+    const winners = teams.filter(team => !team.eliminated && participants.some(participant =>
+      participant.teamId === team.id && !participant.eliminated
+    ));
+    const eliminatedTeams = teams.filter(team => team.eliminated ||
+      (participants.some(participant => participant.teamId === team.id) &&
+        !participants.some(participant => participant.teamId === team.id && !participant.eliminated))
     );
-
-    if (activeTeams.length === 1) {
-      const winner = activeTeams[0];
-
-      const message = document.createElement("div");
-      message.style.marginTop = "20px";
-      message.style.padding = "15px";
-      message.style.borderRadius = "10px";
-
-      const strong = document.createElement("strong");
-
-      strong.textContent =
-        `獲勝隊伍：${winner.name}`;
-
-      message.appendChild(strong);
-      resultList.appendChild(message);
-    }
-
-    return;
+    summary.appendChild(element("strong", `獲勝隊伍：${winners.map(team => team.name).join("、") || "無"}`));
+    summary.appendChild(element("div", `淘汰隊伍：${eliminatedTeams.map(team => team.name).join("、") || "無"}`, "danger"));
+  } else {
+    const winners = participants.filter(isParticipantEligibleToAct);
+    summary.appendChild(element("strong", `獲勝者：${winners.map(participant => participant.name).join("、") || "無"}`));
   }
 
-  const activeParticipants =
-    participants.filter(function (participant) {
-      return !participant.eliminated;
-    });
-
-  if (activeParticipants.length === 1) {
-    const winner = activeParticipants[0];
-
-    const message = document.createElement("div");
-    message.style.marginTop = "20px";
-    message.style.padding = "15px";
-    message.style.borderRadius = "10px";
-
-    const strong = document.createElement("strong");
-
-    strong.textContent =
-      `獲勝者：${winner.name}`;
-
-    message.appendChild(strong);
-    resultList.appendChild(message);
-  }
+  const eliminated = participants.filter(participant => participant.eliminated);
+  summary.appendChild(element("div", `淘汰者：${eliminated.map(participant => participant.name).join("、") || "無"}`, "danger"));
+  resultPanel.classList.remove("hidden");
+  resultList.appendChild(summary);
 }
 
 // ============================================================
@@ -5392,6 +5366,8 @@ function renderEquipmentDiscardPanel() {
   if (settle) {
     settle.disabled = roundBusy || pending.length > 0 || tournamentFrozen || isFinalEquipmentSettlement();
   }
+
+  checkGameEnd();
 
   document.getElementById("equipmentSettlementStatus")?.remove();
   if (isFinalEquipmentSettlement()) {
