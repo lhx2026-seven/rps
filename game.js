@@ -1575,7 +1575,7 @@ function renderTeamOperation() {
 // ============================================================
 
 async function startRound() {
-if (tournamentFrozen || isFinalEquipmentSettlement()) return;
+if (tournamentFrozen || isRoundStopped()) return;
 if (roundBusy) return;
 
 if (hasPendingEquipment()) {
@@ -1616,7 +1616,7 @@ if (hasPendingEquipment()) {
       document.getElementById("startRoundBtn");
 
     if (start) {
-      start.disabled = hasPendingEquipment() || isFinalEquipmentSettlement();
+      start.disabled = hasPendingEquipment() || isRoundStopped();
     }
 
     const reset =
@@ -1633,7 +1633,6 @@ async function startNormalRound() {
     participants.filter(isParticipantEligibleToAct);
 
   if (activeParticipants.length < 2) {
-    alert("剩餘參賽者不足 2 人。");
     return;
   }
 
@@ -2130,7 +2129,6 @@ async function startTeamRound() {
   });
 
   if (activeTeams.length < 2) {
-    alert("剩餘隊伍不足 2 隊。");
     return;
   }
 
@@ -4588,7 +4586,7 @@ function addStartButton() {
   start.textContent = "START！";
   start.onclick = startRound;
   start.disabled =
-    roundBusy || hasPendingEquipment() || isFinalEquipmentSettlement();
+    roundBusy || hasPendingEquipment() || isRoundStopped();
 
   let reset =
     document.getElementById("resetCurrentRoundBtn");
@@ -4634,6 +4632,34 @@ function addStartButton() {
   settle.disabled = roundBusy || hasPendingEquipment() || tournamentFrozen || isFinalEquipmentSettlement();
 
   operationPanel.append(start, settle, reset, deleteButton);
+}
+
+function isRoundStopped() {
+  if (isFinalEquipmentSettlement()) return true;
+
+  if (gameConfig.eliminationMode === "loss") {
+    const competitors = gameConfig.teamMode ? teams : participants;
+    if (competitors.some(competitor =>
+      (gameConfig.teamMode ? competitor.losses : competitor.roundLosses) >= gameConfig.lossLimit
+    )) return true;
+  }
+
+  if (gameConfig.eliminationMode === "equipment") {
+    const strippedCount = participants.filter(participant =>
+      Array.isArray(participant.equipment) && participant.equipment.length === 0
+    ).length;
+    if (strippedCount >= readPositiveInteger({ value: gameConfig.emptyEquipmentLimit })) {
+      return true;
+    }
+  }
+
+  if (gameConfig.teamMode) {
+    return teams.filter(team => !team.eliminated && participants.some(participant =>
+      participant.teamId === team.id && !participant.eliminated
+    )).length < 2;
+  }
+
+  return participants.filter(isParticipantEligibleToAct).length < 2;
 }
 
 function isFinalEquipmentSettlement() {
@@ -5359,7 +5385,7 @@ function renderEquipmentDiscardPanel() {
 
   if (start) {
     start.disabled =
-      roundBusy || pending.length > 0 || isFinalEquipmentSettlement();
+      roundBusy || pending.length > 0 || isRoundStopped();
   }
 
   const settle = document.getElementById("settleEquipmentBtn");
