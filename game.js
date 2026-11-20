@@ -1994,7 +1994,7 @@ async function resolveHeadcountHandAfterDiscards() {
       "div",
       "淘汰者：" +
         eliminatedNow.map(participant => participant.name).join("、"),
-      "danger"
+      "danger round-elimination-notice"
     );
 
     message.style.marginTop = "15px";
@@ -2086,7 +2086,7 @@ function renderNormalResults(
     const eliminatedBox =
       document.createElement("div");
 
-    eliminatedBox.className = "danger";
+    eliminatedBox.className = "danger round-elimination-notice";
 eliminatedBox.style.cssText =
   "display:inline-block; margin-top:15px; margin-right:12px; vertical-align:middle;";
 
@@ -2414,7 +2414,7 @@ function renderTeamResults(
     const eliminatedBox =
       document.createElement("div");
 
-    eliminatedBox.className = "danger";
+    eliminatedBox.className = "danger round-elimination-notice";
     eliminatedBox.style.marginTop = "15px";
 
     eliminatedBox.textContent =
@@ -4517,6 +4517,8 @@ newParticipants.forEach(participant => {
 function checkGameEnd() {
   document.getElementById("roundOutcomeSummary")?.remove();
   if (!isRoundStopped() || isFinalEquipmentSettlement()) return;
+
+  resultList.querySelectorAll(".round-elimination-notice").forEach(message => message.remove());
 
   const summary = element("div");
   summary.id = "roundOutcomeSummary";

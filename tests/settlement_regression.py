@@ -152,6 +152,17 @@ def main():
               return before === JSON.stringify([roundNumber, roundHistory, participants, teams]);
             }"""), scenario
             assert page.locator('#startRoundBtn').is_disabled(), scenario
+            # Exercise the original per-hand notices before rendering the final summary.
+            page.evaluate("""scenario => {
+              const eliminated = participants.filter(p => p.eliminated);
+              if (gameConfig.teamMode) {
+                renderTeamResults([], {}, {}, {eliminatedTeams: teams.filter(t => t.eliminated)});
+              } else {
+                renderNormalResults([], {}, {}, eliminated);
+              }
+              checkGameEnd(); checkGameEnd();
+            }""", scenario)
+            assert page.locator('#resultList .round-elimination-notice').count() == 0
             summary = page.locator('#roundOutcomeSummary')
             assert summary.count() == 1, scenario
             assert '本回合已結束' not in summary.inner_text()
@@ -164,6 +175,7 @@ def main():
             })""")
             assert ('獲勝隊伍：' if scenario in ('team-loss', 'few-teams') else '獲勝者：') + ('、'.join(expected['winners']) or '無') in summary.inner_text()
             assert '淘汰者：' + ('、'.join(expected['eliminated']) or '無') in summary.inner_text()
+            assert page.locator('#resultList').inner_text().count('淘汰者：') == 1
             assert not dialogs, dialogs
             page.close()
             print(f'PASS: START stays locked without alerts ({scenario})')
