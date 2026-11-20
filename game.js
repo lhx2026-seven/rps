@@ -1341,6 +1341,12 @@ function renderOperationPanel() {
     renderNormalOperation();
   }
 
+  if (isFinalEquipmentSettlement()) {
+    operationList.querySelectorAll("button, input, select").forEach(control => {
+      control.disabled = true;
+    });
+  }
+
   renderEquipmentDiscardPanel();
 }
 
@@ -1569,7 +1575,7 @@ function renderTeamOperation() {
 // ============================================================
 
 async function startRound() {
-if (tournamentFrozen) return;
+if (tournamentFrozen || isFinalEquipmentSettlement()) return;
 if (roundBusy) return;
 
 if (hasPendingEquipment()) {
@@ -1610,7 +1616,7 @@ if (hasPendingEquipment()) {
       document.getElementById("startRoundBtn");
 
     if (start) {
-      start.disabled = hasPendingEquipment();
+      start.disabled = hasPendingEquipment() || isFinalEquipmentSettlement();
     }
 
     const reset =
@@ -4431,6 +4437,7 @@ newParticipants.forEach(participant => {
     emptyEquipmentLimit: nextEmptyEquipmentLimit,
     eliminationPenalty: nextPenalty
   };
+  delete gameConfig.equipmentSettlementStarted;
 
   teams = [];
 
@@ -4581,7 +4588,7 @@ function addStartButton() {
   start.textContent = "START！";
   start.onclick = startRound;
   start.disabled =
-    roundBusy || hasPendingEquipment();
+    roundBusy || hasPendingEquipment() || isFinalEquipmentSettlement();
 
   let reset =
     document.getElementById("resetCurrentRoundBtn");
@@ -4624,14 +4631,24 @@ function addStartButton() {
     settle.addEventListener("click", settleEquipment);
   }
   settle.hidden = gameConfig.eliminationMode !== "none";
-  settle.disabled = roundBusy || hasPendingEquipment() || tournamentFrozen;
+  settle.disabled = roundBusy || hasPendingEquipment() || tournamentFrozen || isFinalEquipmentSettlement();
 
   operationPanel.append(start, settle, reset, deleteButton);
 }
 
+function isFinalEquipmentSettlement() {
+  return gameConfig.equipmentRule === "unlimited" &&
+    gameConfig.eliminationMode === "none" &&
+    gameConfig.equipmentSettlementStarted === true;
+}
+
 async function settleEquipment() {
-  if (tournamentFrozen || roundBusy || hasPendingEquipment() ||
+  if (tournamentFrozen || roundBusy || hasPendingEquipment() || isFinalEquipmentSettlement() ||
       gameConfig.eliminationMode !== "none") return;
+
+  if (gameConfig.equipmentRule === "unlimited") {
+    gameConfig.equipmentSettlementStarted = true;
+  }
 
   participants.forEach(participant => {
     ensureEquipment(participant);
@@ -4664,6 +4681,7 @@ async function resetCurrentRound() {
   roundBusy = true;
 
   try {
+    delete gameConfig.equipmentSettlementStarted;
     participants.forEach(participant => {
       ensureEquipment(participant);
 
@@ -5341,12 +5359,24 @@ function renderEquipmentDiscardPanel() {
 
   if (start) {
     start.disabled =
-      roundBusy || pending.length > 0;
+      roundBusy || pending.length > 0 || isFinalEquipmentSettlement();
   }
 
   const settle = document.getElementById("settleEquipmentBtn");
   if (settle) {
-    settle.disabled = roundBusy || pending.length > 0 || tournamentFrozen;
+    settle.disabled = roundBusy || pending.length > 0 || tournamentFrozen || isFinalEquipmentSettlement();
+  }
+
+  document.getElementById("equipmentSettlementStatus")?.remove();
+  if (isFinalEquipmentSettlement()) {
+    const status = element(
+      "div",
+      pending.length ? "本回合已停止，請完成衣物結算。" : "本回合已結束。"
+    );
+    status.id = "equipmentSettlementStatus";
+    status.style.marginTop = "16px";
+    resultPanel.classList.remove("hidden");
+    resultList.appendChild(status);
   }
 
   if (!pending.length) {
