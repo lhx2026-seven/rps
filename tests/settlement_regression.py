@@ -13,15 +13,40 @@ ROOT = Path(__file__).resolve().parents[1]
 def open_game(browser, team=False, rule='unlimited', mode='none', naked=False):
     page = browser.new_page(accept_downloads=True)
     page.on('dialog', lambda dialog: dialog.accept())
-    page.route('http://rps.test/**', lambda route: route.fulfill(
-        body=ROOT.joinpath('game.js' if route.request.url.endswith('game.js') else 'index.html').read_text(),
-        content_type='text/javascript' if route.request.url.endswith('game.js') else 'text/html'))
+    def serve(route):
+        name = route.request.url.rsplit('/', 1)[-1]
+        name = name if name in ('game.js', 'style.css') else 'index.html'
+        route.fulfill(body=ROOT.joinpath(name).read_text(), content_type={
+            'game.js': 'text/javascript', 'style.css': 'text/css', 'index.html': 'text/html'}[name])
+    page.route('http://rps.test/**', serve)
     page.goto('http://rps.test/')
     page.locator('#equipmentRule').select_option(rule)
     page.locator('#eliminationMode').select_option(mode)
     if team:
         page.locator('#teamMode').check()
     page.locator('#createGameBtn').click()
+    assert page.locator('#settleEquipmentBtn').is_disabled()
+    assert page.locator('#settleEquipmentBtn').evaluate("el => getComputedStyle(el).backgroundColor") == 'rgb(221, 221, 221)'
+    assert page.evaluate("""async () => {
+      await settleEquipment();
+      return !hasPendingEquipment() && !isFinalEquipmentSettlement();
+    }""")
+    page.evaluate("""async () => {
+      participants.forEach((p, i) => {
+        p.controlled = true;
+        if (gameConfig.teamMode) p.teamId = teams[i % teams.length].id;
+        playerThrows[p.id] = 'rock';
+      });
+      teams.forEach(t => {
+        t.controlled = true;
+        teamRepresentatives[`team-${t.id}`] = participants.find(p => p.teamId === t.id).id;
+        playerThrows[`team-${t.id}`] = 'rock';
+      });
+      await startRound();
+    }""")
+    assert page.evaluate('roundNumber === 1')
+    if mode == 'none':
+        assert page.locator('#settleEquipmentBtn').is_enabled()
     # Use legal, deterministic equipment to exercise both multi-item and last-item paths.
     page.evaluate('''naked => {
       participants.forEach((p, i) => {
@@ -37,6 +62,7 @@ def open_game(browser, team=False, rule='unlimited', mode='none', naked=False):
 def assert_stopped(page, completed):
     assert page.locator('#roundOutcomeSummary').count() == 0
     assert page.locator('#startRoundBtn').is_disabled()
+    assert page.locator('#startRoundBtn').evaluate("el => getComputedStyle(el).backgroundColor") == 'rgb(221, 221, 221)'
     assert page.locator('#settleEquipmentBtn').is_disabled()
     assert page.locator('#equipmentSettlementStatus').inner_text() == (
         '本回合已結束。' if completed else '本回合已停止，請完成衣物結算。')
@@ -78,6 +104,7 @@ def main():
             page.locator('#confirmNextRoundBtn').click()
             page.wait_for_function('tournamentRoundNumber === 2')
             assert page.evaluate('!isFinalEquipmentSettlement()')
+            assert page.locator('#settleEquipmentBtn').is_disabled()
             page.evaluate('''() => {
               if (gameConfig.teamMode) participants.forEach((p, i) => p.teamId = teams[i % teams.length].id);
               renderOperationPanel();
@@ -88,6 +115,7 @@ def main():
             page.locator('#resetCurrentRoundBtn').click()
             assert page.locator('#startRoundBtn').is_enabled()
             assert page.locator('#equipmentSettlementStatus').count() == 0
+            assert page.locator('#settleEquipmentBtn').is_disabled()
             page.close()
             print(f'PASS: final settlement, persistence, next round and reset (team={team})')
 
