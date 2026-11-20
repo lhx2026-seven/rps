@@ -4605,7 +4605,7 @@ function addStartButton() {
     settle.addEventListener("click", settleEquipment);
   }
   settle.hidden = gameConfig.eliminationMode !== "none";
-  settle.disabled = roundBusy || hasPendingEquipment() || tournamentFrozen || isFinalEquipmentSettlement();
+  settle.disabled = roundNumber < 1 || roundBusy || hasPendingEquipment() || tournamentFrozen || isFinalEquipmentSettlement();
 
   operationPanel.append(start, settle, reset, deleteButton);
 }
@@ -4645,7 +4645,7 @@ function isFinalEquipmentSettlement() {
 }
 
 async function settleEquipment() {
-  if (tournamentFrozen || roundBusy || hasPendingEquipment() || isFinalEquipmentSettlement() ||
+  if (roundNumber < 1 || tournamentFrozen || roundBusy || hasPendingEquipment() || isFinalEquipmentSettlement() ||
       gameConfig.eliminationMode !== "none") return;
 
   if (gameConfig.equipmentRule === "unlimited") {
@@ -5366,7 +5366,7 @@ function renderEquipmentDiscardPanel() {
 
   const settle = document.getElementById("settleEquipmentBtn");
   if (settle) {
-    settle.disabled = roundBusy || pending.length > 0 || tournamentFrozen || isFinalEquipmentSettlement();
+    settle.disabled = roundNumber < 1 || roundBusy || pending.length > 0 || tournamentFrozen || isFinalEquipmentSettlement();
   }
 
   checkGameEnd();
