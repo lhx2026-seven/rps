@@ -1341,6 +1341,12 @@ function renderOperationPanel() {
     renderNormalOperation();
   }
 
+  if (isFinalEquipmentSettlement()) {
+    operationList.querySelectorAll("button, input, select").forEach(control => {
+      control.disabled = true;
+    });
+  }
+
   renderEquipmentDiscardPanel();
 }
 
@@ -1569,7 +1575,7 @@ function renderTeamOperation() {
 // ============================================================
 
 async function startRound() {
-if (tournamentFrozen) return;
+if (tournamentFrozen || isRoundStopped()) return;
 if (roundBusy) return;
 
 if (hasPendingEquipment()) {
@@ -1610,7 +1616,7 @@ if (hasPendingEquipment()) {
       document.getElementById("startRoundBtn");
 
     if (start) {
-      start.disabled = hasPendingEquipment();
+      start.disabled = hasPendingEquipment() || isRoundStopped();
     }
 
     const reset =
@@ -1627,7 +1633,6 @@ async function startNormalRound() {
     participants.filter(isParticipantEligibleToAct);
 
   if (activeParticipants.length < 2) {
-    alert("剩餘參賽者不足 2 人。");
     return;
   }
 
@@ -2124,7 +2129,6 @@ async function startTeamRound() {
   });
 
   if (activeTeams.length < 2) {
-    alert("剩餘隊伍不足 2 隊。");
     return;
   }
 
@@ -4431,6 +4435,7 @@ newParticipants.forEach(participant => {
     emptyEquipmentLimit: nextEmptyEquipmentLimit,
     eliminationPenalty: nextPenalty
   };
+  delete gameConfig.equipmentSettlementStarted;
 
   teams = [];
 
@@ -4581,7 +4586,7 @@ function addStartButton() {
   start.textContent = "START！";
   start.onclick = startRound;
   start.disabled =
-    roundBusy || hasPendingEquipment();
+    roundBusy || hasPendingEquipment() || isRoundStopped();
 
   let reset =
     document.getElementById("resetCurrentRoundBtn");
@@ -4624,14 +4629,52 @@ function addStartButton() {
     settle.addEventListener("click", settleEquipment);
   }
   settle.hidden = gameConfig.eliminationMode !== "none";
-  settle.disabled = roundBusy || hasPendingEquipment() || tournamentFrozen;
+  settle.disabled = roundBusy || hasPendingEquipment() || tournamentFrozen || isFinalEquipmentSettlement();
 
   operationPanel.append(start, settle, reset, deleteButton);
 }
 
+function isRoundStopped() {
+  if (isFinalEquipmentSettlement()) return true;
+
+  if (gameConfig.eliminationMode === "loss") {
+    const competitors = gameConfig.teamMode ? teams : participants;
+    if (competitors.some(competitor =>
+      (gameConfig.teamMode ? competitor.losses : competitor.roundLosses) >= gameConfig.lossLimit
+    )) return true;
+  }
+
+  if (gameConfig.eliminationMode === "equipment") {
+    const strippedCount = participants.filter(participant =>
+      Array.isArray(participant.equipment) && participant.equipment.length === 0
+    ).length;
+    if (strippedCount >= readPositiveInteger({ value: gameConfig.emptyEquipmentLimit })) {
+      return true;
+    }
+  }
+
+  if (gameConfig.teamMode) {
+    return teams.filter(team => !team.eliminated && participants.some(participant =>
+      participant.teamId === team.id && !participant.eliminated
+    )).length < 2;
+  }
+
+  return participants.filter(isParticipantEligibleToAct).length < 2;
+}
+
+function isFinalEquipmentSettlement() {
+  return gameConfig.equipmentRule === "unlimited" &&
+    gameConfig.eliminationMode === "none" &&
+    gameConfig.equipmentSettlementStarted === true;
+}
+
 async function settleEquipment() {
-  if (tournamentFrozen || roundBusy || hasPendingEquipment() ||
+  if (tournamentFrozen || roundBusy || hasPendingEquipment() || isFinalEquipmentSettlement() ||
       gameConfig.eliminationMode !== "none") return;
+
+  if (gameConfig.equipmentRule === "unlimited") {
+    gameConfig.equipmentSettlementStarted = true;
+  }
 
   participants.forEach(participant => {
     ensureEquipment(participant);
@@ -4664,6 +4707,7 @@ async function resetCurrentRound() {
   roundBusy = true;
 
   try {
+    delete gameConfig.equipmentSettlementStarted;
     participants.forEach(participant => {
       ensureEquipment(participant);
 
@@ -5341,12 +5385,24 @@ function renderEquipmentDiscardPanel() {
 
   if (start) {
     start.disabled =
-      roundBusy || pending.length > 0;
+      roundBusy || pending.length > 0 || isRoundStopped();
   }
 
   const settle = document.getElementById("settleEquipmentBtn");
   if (settle) {
-    settle.disabled = roundBusy || pending.length > 0 || tournamentFrozen;
+    settle.disabled = roundBusy || pending.length > 0 || tournamentFrozen || isFinalEquipmentSettlement();
+  }
+
+  document.getElementById("equipmentSettlementStatus")?.remove();
+  if (isFinalEquipmentSettlement()) {
+    const status = element(
+      "div",
+      pending.length ? "本回合已停止，請完成衣物結算。" : "本回合已結束。"
+    );
+    status.id = "equipmentSettlementStatus";
+    status.style.marginTop = "16px";
+    resultPanel.classList.remove("hidden");
+    resultList.appendChild(status);
   }
 
   if (!pending.length) {
@@ -5359,20 +5415,17 @@ function renderEquipmentDiscardPanel() {
   panel.style.cssText =
     "padding:16px;margin-top:16px;border:2px solid #b33;border-radius:10px";
 
-  panel.appendChild(
-    element(
-      "h3",
-      pending.some(isUnlimitedEquipmentDiscard)
-        ? "請選擇要脫掉的衣物，或按「夠了」完成。"
-        : "請選擇落敗者需脫掉的衣物"
-    )
-  );
+  if (!pending.some(isUnlimitedEquipmentDiscard)) {
+    panel.appendChild(
+      element("h3", "請選擇落敗者需脫掉的衣物")
+    );
+  }
 
   panel.appendChild(
     element(
       "div",
       pending.some(isUnlimitedEquipmentDiscard)
-        ? "可連續脫多件，也可脫 0 件；按「夠了」完成。"
+        ? "選擇完需脫掉之衣物，即可按「夠了」"
         : "確認脫掉後，才可再進行下一把。",
       "small"
     )
