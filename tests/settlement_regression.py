@@ -35,6 +35,7 @@ def open_game(browser, team=False, rule='unlimited', mode='none', naked=False):
 
 
 def assert_stopped(page, completed):
+    assert page.locator('#roundOutcomeSummary').count() == 0
     assert page.locator('#startRoundBtn').is_disabled()
     assert page.locator('#settleEquipmentBtn').is_disabled()
     assert page.locator('#equipmentSettlementStatus').inner_text() == (
@@ -151,6 +152,18 @@ def main():
               return before === JSON.stringify([roundNumber, roundHistory, participants, teams]);
             }"""), scenario
             assert page.locator('#startRoundBtn').is_disabled(), scenario
+            summary = page.locator('#roundOutcomeSummary')
+            assert summary.count() == 1, scenario
+            assert '本回合已結束' not in summary.inner_text()
+            assert page.locator('#equipmentSettlementStatus').count() == 0
+            expected = page.evaluate("""() => ({
+              winners: gameConfig.teamMode
+                ? teams.filter(t => !t.eliminated && participants.some(p => p.teamId === t.id && !p.eliminated)).map(t => t.name)
+                : participants.filter(isParticipantEligibleToAct).map(p => p.name),
+              eliminated: participants.filter(p => p.eliminated).map(p => p.name)
+            })""")
+            assert ('獲勝隊伍：' if scenario in ('team-loss', 'few-teams') else '獲勝者：') + ('、'.join(expected['winners']) or '無') in summary.inner_text()
+            assert '淘汰者：' + ('、'.join(expected['eliminated']) or '無') in summary.inner_text()
             assert not dialogs, dialogs
             page.close()
             print(f'PASS: START stays locked without alerts ({scenario})')
