@@ -24,7 +24,8 @@ def open_game(browser, team=False, rule='unlimited', mode='none', naked=False):
     page.locator('#createGameBtn').click()
     # Use legal, deterministic equipment to exercise both multi-item and last-item paths.
     page.evaluate('''naked => {
-      participants.forEach(p => {
+      participants.forEach((p, i) => {
+        if (gameConfig.teamMode) p.teamId = teams[i % teams.length].id;
         p.initialEquipment = naked ? [] : ['上衣', '褲子'];
         p.equipment = [...p.initialEquipment];
       });
@@ -76,6 +77,10 @@ def main():
             page.locator('#confirmNextRoundBtn').click()
             page.wait_for_function('tournamentRoundNumber === 2')
             assert page.evaluate('!isFinalEquipmentSettlement()')
+            page.evaluate('''() => {
+              if (gameConfig.teamMode) participants.forEach((p, i) => p.teamId = teams[i % teams.length].id);
+              renderOperationPanel();
+            }''')
             assert page.locator('#startRoundBtn').is_enabled()
             page.locator('.round-tab').first.click()
             assert_stopped(page, True)
@@ -105,6 +110,50 @@ def main():
         assert page.locator('#equipmentSettlementStatus').count() == 0
         page.close()
         print('PASS: normal-rule settlement remains repeatable')
+        for scenario in ('loss', 'team-loss', 'equipment', 'few-players', 'few-teams'):
+            page = open_game(browser, team=scenario in ('team-loss', 'few-teams'))
+            dialogs = []
+            page.on('dialog', lambda dialog: dialogs.append(dialog.message))
+            page.evaluate("""scenario => {
+              // Keep three competitors for threshold checks, so the threshold alone stops START.
+              const extra = {...participants[0], id: 3, participantKey: 'extra',
+                equipment: ['上衣'], initialEquipment: ['上衣'], equipmentHistory: []};
+              participants.push(extra);
+              if (gameConfig.teamMode) {
+                teams.push({...teams[0], id: 3, name: '第三隊'});
+                participants.forEach((p, i) => p.teamId = i + 1);
+              }
+              if (scenario === 'loss') {
+                gameConfig.eliminationMode = 'loss'; gameConfig.lossLimit = 2;
+                participants[0].roundLosses = 1;
+                applyNormalResults({1: 'loss'});
+                participants.forEach(p => p.pendingEquipmentLoss = false);
+              } else if (scenario === 'team-loss') {
+                gameConfig.eliminationMode = 'loss'; gameConfig.lossLimit = 2;
+                teams[0].losses = 1;
+                applyTeamResults(teams, {1: 'loss'});
+                participants.forEach(p => p.pendingEquipmentLoss = false);
+              } else if (scenario === 'equipment') {
+                gameConfig.eliminationMode = 'equipment'; gameConfig.emptyEquipmentLimit = 1;
+                participants[0].equipment = [];
+                eliminateFullyStrippedParticipants();
+              } else if (scenario === 'few-players') {
+                participants.slice(1).forEach(p => p.eliminated = true);
+              } else {
+                teams.slice(1).forEach(t => t.eliminated = true);
+              }
+              renderOperationPanel();
+            }""", scenario)
+            assert page.locator('#startRoundBtn').is_disabled(), scenario
+            assert page.evaluate("""async () => {
+              const before = JSON.stringify([roundNumber, roundHistory, participants, teams]);
+              await startRound(); renderOperationPanel(); renderEquipmentDiscardPanel();
+              return before === JSON.stringify([roundNumber, roundHistory, participants, teams]);
+            }"""), scenario
+            assert page.locator('#startRoundBtn').is_disabled(), scenario
+            assert not dialogs, dialogs
+            page.close()
+            print(f'PASS: START stays locked without alerts ({scenario})')
         browser.close()
 
 
