@@ -5359,20 +5359,17 @@ function renderEquipmentDiscardPanel() {
   panel.style.cssText =
     "padding:16px;margin-top:16px;border:2px solid #b33;border-radius:10px";
 
-  panel.appendChild(
-    element(
-      "h3",
-      pending.some(isUnlimitedEquipmentDiscard)
-        ? "請選擇要脫掉的衣物，或按「夠了」完成。"
-        : "請選擇落敗者需脫掉的衣物"
-    )
-  );
+  if (!pending.some(isUnlimitedEquipmentDiscard)) {
+    panel.appendChild(
+      element("h3", "請選擇落敗者需脫掉的衣物")
+    );
+  }
 
   panel.appendChild(
     element(
       "div",
       pending.some(isUnlimitedEquipmentDiscard)
-        ? "可連續脫多件，也可脫 0 件；按「夠了」完成。"
+        ? "選擇完需脫掉之衣物，即可按「夠了」"
         : "確認脫掉後，才可再進行下一把。",
       "small"
     )
