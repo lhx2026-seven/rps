@@ -5209,15 +5209,6 @@ function renderEquipmentSettings(participant, card) {
 
   box.appendChild(element("strong", "個別衣物設定"));
 
-  box.appendChild(
-    element(
-      "div",
-      roundNumber > 0
-        ? "本回合已開始，起始衣物已鎖定。"
-        : "各參賽者可獨立勾選",
-      "small"
-    )
-  );
 
   const options = element("div");
 
@@ -5462,7 +5453,7 @@ function renderEquipmentDiscardPanel() {
 
     box.appendChild(choices);
 
-    const confirm = element("button", "脫");
+    const confirm = element("button", "脫", "primary-btn");
     confirm.type = "button";
     confirm.disabled = roundBusy;
 
