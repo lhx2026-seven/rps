@@ -1218,11 +1218,24 @@ function renderParticipantSettings() {
 
       const reader = new FileReader();
 
-      reader.onload = event => {
-        participant.avatar = event.target.result;
-
-        renderParticipantSettings();
-        renderOperationPanel();
+      reader.onload = async event => {
+        try {
+          const avatar = await editParticipantAvatar(event.target.result, participant.name);
+          if (!avatar) return;
+          participant.avatar = avatar;
+          renderParticipantSettings();
+          renderOperationPanel();
+          saveCurrentTournamentRoundSnapshot();
+          await saveGameState();
+        } catch (error) {
+          alert(error.message || "無法處理頭貼，請重新選擇圖片。");
+        } finally {
+          file.value = "";
+        }
+      };
+      reader.onerror = () => {
+        file.value = "";
+        alert("無法讀取圖片，請重新選擇檔案。");
       };
 
       reader.readAsDataURL(file.files[0]);
@@ -1239,6 +1252,130 @@ function renderParticipantSettings() {
 // ============================================================
 // 分隊設定
 // ============================================================
+
+// Crop uploaded images once, so every avatar view uses the same centered face.
+function editParticipantAvatar(source, name) {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onerror = () => reject(new Error("無法讀取圖片，請選擇有效的圖片檔案。"));
+    image.onload = () => {
+      const size = 320;
+      const baseScale = Math.max(size / image.naturalWidth, size / image.naturalHeight);
+      let zoom = 1;
+      let offsetX = 0;
+      let offsetY = 0;
+      let drag = null;
+      const dialog = document.createElement("dialog");
+      dialog.className = "avatar-editor";
+      const title = document.createElement("h2");
+      title.id = "avatar-editor-title";
+      title.textContent = `調整 ${name} 的頭貼`;
+      dialog.setAttribute("aria-labelledby", title.id);
+      const help = document.createElement("p");
+      help.textContent = "拖曳圖片或使用滑桿調整位置，讓臉對準中央十字。圓圈內是圓形頭貼顯示範圍。";
+      const preview = document.createElement("div");
+      preview.className = "avatar-editor__preview";
+      const canvas = document.createElement("canvas");
+      canvas.width = canvas.height = size;
+      canvas.setAttribute("aria-label", "頭貼裁切預覽，可拖曳調整位置");
+      const guide = document.createElement("div");
+      guide.className = "avatar-editor__guide";
+      guide.setAttribute("aria-hidden", "true");
+      preview.append(canvas, guide);
+      const context = canvas.getContext("2d");
+      const sliders = [];
+      function addSlider(labelText, min, max, step, value, update) {
+        const label = document.createElement("label");
+        label.textContent = labelText;
+        const input = document.createElement("input");
+        input.type = "range";
+        input.min = min;
+        input.max = max;
+        input.step = step;
+        input.value = value;
+        input.addEventListener("input", () => {
+          update(Number(input.value));
+          draw();
+        });
+        label.appendChild(input);
+        sliders.push(label);
+        return input;
+      }
+      const zoomInput = addSlider("縮放", 1, 4, 0.01, 1, value => { zoom = value; });
+      const xInput = addSlider("左右位置", -size, size, 0.1, 0, value => { offsetX = value; });
+      const yInput = addSlider("上下位置", -size, size, 0.1, 0, value => { offsetY = value; });
+      function draw() {
+        const width = image.naturalWidth * baseScale * zoom;
+        const height = image.naturalHeight * baseScale * zoom;
+        const maxX = Math.max(0, (width - size) / 2);
+        const maxY = Math.max(0, (height - size) / 2);
+        offsetX = Math.max(-maxX, Math.min(maxX, offsetX));
+        offsetY = Math.max(-maxY, Math.min(maxY, offsetY));
+        xInput.min = -maxX;
+        xInput.max = maxX;
+        xInput.value = offsetX;
+        xInput.disabled = maxX < 0.1;
+        yInput.min = -maxY;
+        yInput.max = maxY;
+        yInput.value = offsetY;
+        yInput.disabled = maxY < 0.1;
+        context.clearRect(0, 0, size, size);
+        context.drawImage(image, (size - width) / 2 + offsetX, (size - height) / 2 + offsetY, width, height);
+      }
+      canvas.addEventListener("pointerdown", event => {
+        if (event.button !== 0 || drag) return;
+        drag = { id: event.pointerId, x: event.clientX, y: event.clientY, offsetX, offsetY };
+        canvas.setPointerCapture(event.pointerId);
+      });
+      canvas.addEventListener("pointermove", event => {
+        if (!drag || event.pointerId !== drag.id) return;
+        const factor = size / canvas.getBoundingClientRect().width;
+        offsetX = drag.offsetX + (event.clientX - drag.x) * factor;
+        offsetY = drag.offsetY + (event.clientY - drag.y) * factor;
+        draw();
+      });
+      canvas.addEventListener("lostpointercapture", () => { drag = null; });
+      canvas.addEventListener("pointerup", () => { drag = null; });
+      canvas.addEventListener("pointercancel", () => { drag = null; });
+      const actions = document.createElement("div");
+      actions.className = "avatar-editor__actions";
+      function button(text, action) {
+        const node = document.createElement("button");
+        node.type = "button";
+        node.textContent = text;
+        node.addEventListener("click", action);
+        actions.appendChild(node);
+      }
+      function finish(result) {
+        dialog.close();
+        dialog.remove();
+        resolve(result);
+      }
+      button("重設", () => {
+        zoom = 1;
+        zoomInput.value = 1;
+        offsetX = offsetY = 0;
+        draw();
+      });
+      button("取消", () => finish(null));
+      button("確認頭貼", () => {
+        const output = document.createElement("canvas");
+        output.width = output.height = 512;
+        output.getContext("2d").drawImage(canvas, 0, 0, 512, 512);
+        finish(output.toDataURL("image/png"));
+      });
+      dialog.addEventListener("cancel", event => {
+        event.preventDefault();
+        finish(null);
+      });
+      dialog.append(title, help, preview, ...sliders, actions);
+      document.body.appendChild(dialog);
+      draw();
+      dialog.showModal();
+    };
+    image.src = source;
+  });
+}
 
 function renderTeamControls() {
   teamControlList.innerHTML = "";
