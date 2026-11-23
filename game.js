@@ -1446,18 +1446,19 @@ function renderNormalOperation() {
   addStartButton();
 }
 
-function renderTeamOperation() {
-  const activeTeams = teams.filter(function (team) {
-    return (
-      !team.eliminated &&
-      participants.some(function (participant) {
-        return (
-          participant.teamId === team.id &&
-          !participant.eliminated
-        );
-      })
-    );
+function isTeamEligibleToAct(team) {
+  return !team.eliminated && participants.some(participant => {
+    if (participant.teamId !== team.id || participant.eliminated) {
+      return false;
+    }
+    if (gameConfig.eliminationMode !== "equipment") return true;
+    ensureEquipment(participant);
+    return participant.equipment.length > 0;
   });
+}
+
+function renderTeamOperation() {
+  const activeTeams = teams.filter(isTeamEligibleToAct);
 
   activeTeams.forEach(function (team) {
     const card = document.createElement("div");
@@ -2116,17 +2117,7 @@ eliminatedBox.style.cssText =
 // ============================================================
 
 async function startTeamRound() {
-  const activeTeams = teams.filter(team => {
-    return (
-      !team.eliminated &&
-      participants.some(participant => {
-        return (
-          participant.teamId === team.id &&
-          !participant.eliminated
-        );
-      })
-    );
-  });
+  const activeTeams = teams.filter(isTeamEligibleToAct);
 
   if (activeTeams.length < 2) {
     return;
@@ -4525,9 +4516,7 @@ function checkGameEnd() {
   summary.style.cssText = "margin-top:20px;padding:15px;border-radius:10px";
 
   if (gameConfig.teamMode) {
-    const winners = teams.filter(team => !team.eliminated && participants.some(participant =>
-      participant.teamId === team.id && !participant.eliminated
-    ));
+    const winners = teams.filter(isTeamEligibleToAct);
     const eliminatedTeams = teams.filter(team => team.eliminated ||
       (participants.some(participant => participant.teamId === team.id) &&
         !participants.some(participant => participant.teamId === team.id && !participant.eliminated))
@@ -4630,9 +4619,7 @@ function isRoundStopped() {
   }
 
   if (gameConfig.teamMode) {
-    return teams.filter(team => !team.eliminated && participants.some(participant =>
-      participant.teamId === team.id && !participant.eliminated
-    )).length < 2;
+    return teams.filter(isTeamEligibleToAct).length < 2;
   }
 
   return participants.filter(isParticipantEligibleToAct).length < 2;
