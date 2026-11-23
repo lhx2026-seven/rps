@@ -1241,7 +1241,7 @@ function renderParticipantSettings() {
       reader.readAsDataURL(file.files[0]);
     });
 
-    field("頭像", file);
+    file.hidden = true;
     const urlControls = element("div", undefined, "avatar-url-controls");
     const avatarUrl = element("input");
     avatarUrl.type = "url";
@@ -1303,7 +1303,37 @@ function renderParticipantSettings() {
       }
     });
     urlControls.append(avatarUrl, applyUrl, urlStatus);
-    field("頭像網址", urlControls);
+    const sourcePicker = element("details", undefined, "avatar-source-picker");
+    const sourceSummary = element("summary", "選擇圖片");
+    const sourceOptions = element("div", undefined, "avatar-source-options");
+    const uploadOption = element("button", "上傳檔案");
+    uploadOption.type = "button";
+    uploadOption.addEventListener("click", () => {
+      sourcePicker.open = false;
+      file.click();
+    });
+    const urlOption = element("button", "圖片網址");
+    urlOption.type = "button";
+    urlOption.setAttribute("aria-expanded", "false");
+    urlOption.setAttribute("aria-controls", `avatar-url-${participant.id}`);
+    urlControls.id = `avatar-url-${participant.id}`;
+    urlControls.classList.add("hidden");
+    urlOption.addEventListener("click", () => {
+      const expanded = urlControls.classList.toggle("hidden") === false;
+      urlOption.setAttribute("aria-expanded", String(expanded));
+      if (expanded) avatarUrl.focus();
+    });
+    sourcePicker.addEventListener("keydown", event => {
+      if (event.key === "Escape") {
+        sourcePicker.open = false;
+        sourceSummary.focus();
+      }
+    });
+    sourceOptions.append(uploadOption, urlOption, urlControls);
+    sourcePicker.append(sourceSummary, sourceOptions);
+    const avatarField = element("div", undefined, "avatar-source-field");
+    avatarField.append(element("span", "頭像"), file, sourcePicker);
+    controls.appendChild(avatarField);
 
 
     card.appendChild(controls);

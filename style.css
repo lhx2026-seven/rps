@@ -142,3 +142,11 @@ h4, h5, h6,
 .avatar-url-controls input[type="url"] { flex: 1 1 180px; min-width: 0; width: 100%; padding: 8px 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 15px; }
 .avatar-url-controls button { padding: 8px 10px; }
 .avatar-url-controls [role="status"] { flex-basis: 100%; overflow-wrap: anywhere; }
+
+.avatar-source-field { margin-bottom: 10px; min-width: 0; }
+.avatar-source-picker { margin-top: 4px; }
+.avatar-source-picker summary { width: fit-content; padding: 8px 12px; border: 1px solid #ccc; border-radius: 6px; background: #fff; cursor: pointer; }
+.avatar-source-picker summary:focus-visible { outline: 2px solid #222; outline-offset: 2px; }
+.avatar-source-options { display: flex; flex-wrap: wrap; gap: 8px; padding: 10px; margin-top: 6px; border: 1px solid #ddd; border-radius: 8px; background: #fafafa; }
+.avatar-source-options > button { padding: 8px 12px; }
+.avatar-source-options .avatar-url-controls { flex-basis: 100%; }
