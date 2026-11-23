@@ -131,14 +131,22 @@ def main():
             page.close()
             print(f'PASS: no remaining equipment (initially naked={naked})')
 
-        page = open_game(browser, rule='normal')
-        page.locator('#settleEquipmentBtn').click()
-        while page.get_by_role('button', name='夠了', exact=True).count():
-            page.get_by_role('button', name='夠了', exact=True).first.click()
-        assert page.locator('#startRoundBtn').is_enabled()
-        assert page.locator('#equipmentSettlementStatus').count() == 0
-        page.close()
-        print('PASS: normal-rule settlement remains repeatable')
+        for team in (False, True):
+            page = open_game(browser, team=team, rule='normal')
+            # Every normal-rule settlement removes exactly one item per player.
+            for remaining in (1, 0):
+                page.locator('#settleEquipmentBtn').click()
+                assert page.get_by_role('button', name='夠了', exact=True).count() == 0
+                while page.locator('#equipmentDiscardPanel').count():
+                    panel = page.locator('#equipmentDiscardPanel')
+                    panel.locator('input[type="radio"]:enabled').first.check()
+                    panel.get_by_role('button', name='脫', exact=True).first.click()
+                assert page.evaluate('participants.every(p => p.equipment.length === %d)' % remaining)
+                assert page.locator('#startRoundBtn').is_enabled()
+                assert page.locator('#settleEquipmentBtn').is_enabled()
+                assert page.locator('#equipmentSettlementStatus').count() == 0
+            page.close()
+            print(f'PASS: normal settlement removes one item without a finish button (team={team})')
         for scenario in ('loss', 'team-loss', 'equipment', 'few-players', 'few-teams'):
             page = open_game(browser, team=scenario in ('team-loss', 'few-teams'))
             dialogs = []
