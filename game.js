@@ -5109,8 +5109,7 @@ function legalEquipment(participant) {
 }
 
 function isUnlimitedEquipmentDiscard(participant) {
-  return gameConfig.equipmentRule === "unlimited" ||
-    participant.pendingEquipmentSettlement;
+  return gameConfig.equipmentRule === "unlimited";
 }
 
 function discardEquipment(participant, item) {
