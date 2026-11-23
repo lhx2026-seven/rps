@@ -1242,6 +1242,69 @@ function renderParticipantSettings() {
     });
 
     field("頭像", file);
+    const urlControls = element("div", undefined, "avatar-url-controls");
+    const avatarUrl = element("input");
+    avatarUrl.type = "url";
+    avatarUrl.placeholder = "https://example.com/avatar.jpg";
+    avatarUrl.setAttribute("aria-label", "頭像圖片網址");
+    avatarUrl.value = /^https?:\/\//i.test(participant.avatar || "")
+      ? participant.avatar : "";
+    const applyUrl = element("button", "使用網址");
+    applyUrl.type = "button";
+    const urlStatus = element("span", "請貼上可直接開啟圖片的 HTTP／HTTPS 網址。", "small");
+    urlStatus.setAttribute("role", "status");
+    async function applyAvatarUrl() {
+      if (applyUrl.disabled) return;
+      let url;
+      try {
+        url = new URL(avatarUrl.value.trim());
+        if (!["http:", "https:"].includes(url.protocol) || url.username || url.password) {
+          throw new Error("invalid URL");
+        }
+      } catch {
+        urlStatus.textContent = "請輸入有效的 HTTP／HTTPS 圖片網址。";
+        avatarUrl.focus();
+        return;
+      }
+      applyUrl.disabled = true;
+      avatarUrl.disabled = true;
+      urlStatus.textContent = "正在載入圖片…";
+      try {
+        await new Promise((resolve, reject) => {
+          const image = new Image();
+          const timer = setTimeout(() => finish(new Error("圖片載入逾時，請確認網址或稍後再試。")), 15000);
+          function finish(error) {
+            clearTimeout(timer);
+            image.onload = image.onerror = null;
+            if (error) reject(error);
+            else resolve();
+          }
+          image.onload = () => finish(image.naturalWidth ? null : new Error("網址未提供有效圖片。"));
+          image.onerror = () => finish(new Error("無法載入圖片，請使用可公開存取的圖片直連網址。"));
+          image.src = url.href;
+        });
+        participant.avatar = url.href;
+        renderParticipantSettings();
+        renderOperationPanel();
+        saveCurrentTournamentRoundSnapshot();
+        await saveGameState();
+      } catch (error) {
+        urlStatus.textContent = error.message || "無法載入圖片，請確認網址。";
+      } finally {
+        applyUrl.disabled = false;
+        avatarUrl.disabled = false;
+      }
+    }
+    applyUrl.addEventListener("click", applyAvatarUrl);
+    avatarUrl.addEventListener("keydown", event => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        void applyAvatarUrl();
+      }
+    });
+    urlControls.append(avatarUrl, applyUrl, urlStatus);
+    field("頭像網址", urlControls);
+
 
     card.appendChild(controls);
     renderEquipmentSettings(participant, card);
