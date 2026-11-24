@@ -150,3 +150,29 @@ h4, h5, h6,
 .avatar-source-options { display: flex; flex-wrap: wrap; gap: 8px; padding: 10px; margin-top: 6px; border: 1px solid #ddd; border-radius: 8px; background: #fafafa; }
 .avatar-source-options > button { padding: 8px 12px; }
 .avatar-source-options .avatar-url-controls { flex-basis: 100%; }
+
+/* Compact avatar picker beside the portrait, or beneath it on mobile. */
+.participant-avatar-tools { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.participant-avatar-tools .avatar-source-field { position: relative; margin: 0; min-width: 0; }
+.participant-avatar-tools .avatar-source-picker { margin: 0; }
+.participant-avatar-tools .avatar-source-picker summary,
+.participant-avatar-tools .avatar-source-options > button,
+.participant-avatar-tools .avatar-url-controls button {
+  display: inline-block; box-sizing: border-box; width: auto; min-height: 0;
+  margin: 0; padding: 2px 8px; border: 1px solid #d1d1d1; border-radius: 999px;
+  background: #eee; color: #555; font-size: 11px; font-weight: normal;
+  line-height: 1.5; white-space: nowrap; cursor: pointer; box-shadow: none;
+}
+.participant-avatar-tools .avatar-source-picker summary { list-style: none; }
+.participant-avatar-tools .avatar-source-picker summary::-webkit-details-marker { display: none; }
+.participant-avatar-tools .avatar-source-options {
+  position: absolute; z-index: 20; top: 100%; left: 0;
+  box-sizing: border-box; width: min(280px, calc(100vw - 110px));
+  padding: 8px; gap: 6px; margin-top: 4px;
+}
+.participant-avatar-tools .avatar-url-controls { gap: 6px; }
+.participant-avatar-tools .avatar-url-controls [role="status"]:empty { display: none; }
+.participant-top .participant-info { min-width: 0; overflow-wrap: anywhere; }
+@media (max-width: 600px) {
+  .participant-avatar-tools { flex-direction: column; gap: 5px; }
+}
