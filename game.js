@@ -642,8 +642,11 @@ function lossEliminationReached() {
 }
 
 function getStrippedTeamIds() {
-  return new Set(participants.filter(person => Array.isArray(person.equipment) && person.equipment.length === 0 &&
-    teams.some(team => team.id === person.teamId)).map(person => person.teamId));
+  return new Set(teams.filter(team => {
+    const members = participants.filter(person => person.teamId === team.id);
+    return members.length > 0 && members.every(person =>
+      Array.isArray(person.equipment) && person.equipment.length === 0);
+  }).map(team => team.id));
 }
 
 function equipmentEliminationReached() {
