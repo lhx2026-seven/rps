@@ -167,6 +167,7 @@ def main():
                 participants.forEach(p => p.pendingEquipmentLoss = false);
               } else if (scenario === 'team-loss') {
                 gameConfig.eliminationMode = 'loss'; gameConfig.lossLimit = 2;
+                gameConfig.lossEliminationUnit = 'team';
                 teams[0].losses = 1;
                 applyTeamResults(teams, {1: 'loss'});
                 participants.forEach(p => p.pendingEquipmentLoss = false);
