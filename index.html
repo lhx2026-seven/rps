@@ -400,11 +400,13 @@
 
       <div id="lossLimitBox" class="setting-row hidden">
         <div class="setting-title">累積幾敗淘汰</div>
+        <label class="hidden">敗場累積方式 <select id="lossEliminationUnit" aria-label="敗場累積方式"><option value="person">個人累積</option><option value="team" selected>隊伍累積</option></select></label>
         <input type="number" id="lossLimit" min="1" value="1">
       </div>
 
       <div id="emptyEquipmentLimitBox" class="setting-row hidden">
         <div class="setting-title">淘汰人數</div>
+        <label class="hidden">淘汰計算單位 <select id="equipmentEliminationUnit" aria-label="淘汰計算單位"><option value="person">淘汰人數</option><option value="team">淘汰隊伍數</option></select></label>
         <input type="number" id="emptyEquipmentLimit" min="1" value="1">
       </div>
 
@@ -610,6 +612,7 @@
         class="setting-row hidden"
       >
         <div class="setting-title">累積幾敗淘汰</div>
+        <label class="hidden">敗場累積方式 <select id="nextLossEliminationUnit" aria-label="敗場累積方式"><option value="person">個人累積</option><option value="team" selected>隊伍累積</option></select></label>
 
         <input
           type="number"
@@ -621,6 +624,7 @@
 
       <div id="nextEmptyEquipmentLimitBox" class="setting-row hidden">
         <div class="setting-title">淘汰人數</div>
+        <label class="hidden">淘汰計算單位 <select id="nextEquipmentEliminationUnit" aria-label="淘汰計算單位"><option value="person">淘汰人數</option><option value="team">淘汰隊伍數</option></select></label>
         <input type="number" id="nextEmptyEquipmentLimit" min="1" value="1">
       </div>
 
