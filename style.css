@@ -176,3 +176,11 @@ h4, h5, h6,
 @media (max-width: 600px) {
   .participant-avatar-tools { flex-direction: column; gap: 5px; }
 }
+
+/* Keep the threshold and mutually exclusive units on one compact row. */
+.elimination-limit-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
+.elimination-unit-options { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.elimination-unit-options label { display: inline-flex; align-items: center; gap: 4px; margin: 0; white-space: nowrap; }
+.elimination-unit-options input { margin: 0; }
+.elimination-unit-options label:has(input:disabled) { color: #999; cursor: not-allowed; }
+.elimination-unit-options input:disabled { opacity: .5; cursor: not-allowed; }
