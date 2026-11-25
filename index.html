@@ -400,14 +400,18 @@
 
       <div id="lossLimitBox" class="setting-row hidden">
         <div class="setting-title">累積幾敗淘汰</div>
-        <label class="hidden">敗場累積方式 <select id="lossEliminationUnit" aria-label="敗場累積方式"><option value="person">個人累積</option><option value="team" selected>隊伍累積</option></select></label>
-        <input type="number" id="lossLimit" min="1" value="1">
+        <div class="elimination-limit-controls">
+          <input type="number" id="lossLimit" min="1" value="1">
+          <span id="lossEliminationUnit" class="elimination-unit-options" role="radiogroup" aria-label="敗場累積方式"><label><input type="radio" name="lossEliminationUnit" value="person" checked>個人累積</label><label><input type="radio" name="lossEliminationUnit" value="team" disabled>全隊累積</label></span>
+        </div>
       </div>
 
       <div id="emptyEquipmentLimitBox" class="setting-row hidden">
-        <div class="setting-title">淘汰人數</div>
-        <label class="hidden">淘汰計算單位 <select id="equipmentEliminationUnit" aria-label="淘汰計算單位"><option value="person">淘汰人數</option><option value="team">淘汰隊伍數</option></select></label>
-        <input type="number" id="emptyEquipmentLimit" min="1" value="1">
+        <div class="setting-title">淘汰門檻</div>
+        <div class="elimination-limit-controls">
+          <input type="number" id="emptyEquipmentLimit" min="1" value="1">
+          <span id="equipmentEliminationUnit" class="elimination-unit-options" role="radiogroup" aria-label="淘汰計算單位"><label><input type="radio" name="equipmentEliminationUnit" value="person" checked>人</label><label><input type="radio" name="equipmentEliminationUnit" value="team" disabled>隊</label></span>
+        </div>
       </div>
 
       <div id="penaltyBox" class="setting-row hidden">
@@ -612,20 +616,24 @@
         class="setting-row hidden"
       >
         <div class="setting-title">累積幾敗淘汰</div>
-        <label class="hidden">敗場累積方式 <select id="nextLossEliminationUnit" aria-label="敗場累積方式"><option value="person">個人累積</option><option value="team" selected>隊伍累積</option></select></label>
 
-        <input
+        <div class="elimination-limit-controls">
+          <input
           type="number"
           id="nextLossLimit"
           min="1"
           value="1"
         >
+          <span id="nextLossEliminationUnit" class="elimination-unit-options" role="radiogroup" aria-label="敗場累積方式"><label><input type="radio" name="nextLossEliminationUnit" value="person" checked>個人累積</label><label><input type="radio" name="nextLossEliminationUnit" value="team" disabled>全隊累積</label></span>
+        </div>
       </div>
 
       <div id="nextEmptyEquipmentLimitBox" class="setting-row hidden">
-        <div class="setting-title">淘汰人數</div>
-        <label class="hidden">淘汰計算單位 <select id="nextEquipmentEliminationUnit" aria-label="淘汰計算單位"><option value="person">淘汰人數</option><option value="team">淘汰隊伍數</option></select></label>
-        <input type="number" id="nextEmptyEquipmentLimit" min="1" value="1">
+        <div class="setting-title">淘汰門檻</div>
+        <div class="elimination-limit-controls">
+          <input type="number" id="nextEmptyEquipmentLimit" min="1" value="1">
+          <span id="nextEquipmentEliminationUnit" class="elimination-unit-options" role="radiogroup" aria-label="淘汰計算單位"><label><input type="radio" name="nextEquipmentEliminationUnit" value="person" checked>人</label><label><input type="radio" name="nextEquipmentEliminationUnit" value="team" disabled>隊</label></span>
+        </div>
       </div>
 
       <div
