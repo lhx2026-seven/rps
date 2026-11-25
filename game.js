@@ -655,23 +655,33 @@ function equipmentEliminationReached() {
   return count >= readPositiveInteger({ value: gameConfig.emptyEquipmentLimit });
 }
 
+function readEliminationUnit(kind, prefix = "") {
+  const name = kind + "EliminationUnit";
+  const id = prefix ? prefix + name[0].toUpperCase() + name.slice(1) : name;
+  const selected = document.querySelector("#" + id + " input:checked");
+  return selected && !selected.disabled ? selected.value : "person";
+}
+
 function updateEliminationUnitAvailability(prefix = "") {
   const id = name => prefix ? prefix + name[0].toUpperCase() + name.slice(1) : name;
   const allowed = document.getElementById(id("teamMode"))?.checked &&
     document.getElementById(id("teamEquipmentSolidarity"))?.checked;
   for (const kind of ["loss", "equipment"]) {
-    const select = document.getElementById(id(kind + "EliminationUnit"));
-    select.disabled = !allowed;
-    select.parentElement.classList.toggle("hidden", !allowed);
+    const group = document.getElementById(id(kind + "EliminationUnit"));
+    const team = group.querySelector('input[value="team"]');
+    team.disabled = !allowed;
+    if (!allowed && team.checked) group.querySelector('input[value="person"]').checked = true;
   }
-  const teamCount = allowed && document.getElementById(id("equipmentEliminationUnit")).value === "team";
-  document.querySelector("#" + id("emptyEquipmentLimitBox") + " .setting-title").textContent = teamCount ? "淘汰隊伍數" : "淘汰人數";
 }
 
 function restoreEliminationUnitControls(prefix = "") {
   const id = name => prefix ? prefix + name[0].toUpperCase() + name.slice(1) : name;
-  document.getElementById(id("lossEliminationUnit")).value = gameConfig.lossEliminationUnit === "person" ? "person" : "team";
-  document.getElementById(id("equipmentEliminationUnit")).value = gameConfig.equipmentEliminationUnit === "team" ? "team" : "person";
+  const lossUnit = gameConfig.lossEliminationUnit || (gameConfig.teamMode ? "team" : "person");
+  const equipmentUnit = gameConfig.equipmentEliminationUnit || "person";
+  for (const [kind, unit] of [["loss", lossUnit], ["equipment", equipmentUnit]]) {
+    const group = document.getElementById(id(kind + "EliminationUnit"));
+    group.querySelector('input[value="' + (unit === "team" ? "team" : "person") + '"]').checked = true;
+  }
   updateEliminationUnitAvailability(prefix);
 }
 
@@ -1001,8 +1011,8 @@ async function createGame() {
         : "normal",
     eliminationMode: eliminationModeInput.value,
     lossLimit: lossLimit,
-    lossEliminationUnit: !document.getElementById("lossEliminationUnit").disabled ? document.getElementById("lossEliminationUnit").value : "person",
-    equipmentEliminationUnit: !document.getElementById("equipmentEliminationUnit").disabled ? document.getElementById("equipmentEliminationUnit").value : "person",
+    lossEliminationUnit: readEliminationUnit("loss"),
+    equipmentEliminationUnit: readEliminationUnit("equipment"),
     emptyEquipmentLimit: readPositiveInteger(emptyEquipmentLimitInput),
     eliminationPenalty:
       eliminationPenaltyInput.value.trim()
@@ -4727,8 +4737,8 @@ newParticipants.forEach(participant => {
     equipmentRule: nextEquipmentRule,
     eliminationMode: nextEliminationMode,
     lossLimit: nextLossLimit,
-    lossEliminationUnit: !document.getElementById("nextLossEliminationUnit").disabled ? document.getElementById("nextLossEliminationUnit").value : "person",
-    equipmentEliminationUnit: !document.getElementById("nextEquipmentEliminationUnit").disabled ? document.getElementById("nextEquipmentEliminationUnit").value : "person",
+    lossEliminationUnit: readEliminationUnit("loss", "next"),
+    equipmentEliminationUnit: readEliminationUnit("equipment", "next"),
     emptyEquipmentLimit: nextEmptyEquipmentLimit,
     eliminationPenalty: nextPenalty
   };
