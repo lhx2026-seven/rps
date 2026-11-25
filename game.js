@@ -462,6 +462,14 @@ let importJsonInput = null;
 // 初始事件
 // ============================================================
 
+for (const prefix of ["", "next"]) {
+  for (const name of ["teamMode", "teamEquipmentSolidarity", "lossEliminationUnit", "equipmentEliminationUnit"]) {
+    const id = prefix ? prefix + name[0].toUpperCase() + name.slice(1) : name;
+    document.getElementById(id).addEventListener("change", () => updateEliminationUnitAvailability(prefix));
+  }
+  updateEliminationUnitAvailability(prefix);
+}
+
 updateEliminationSettingsVisibility();
 setEquipmentEliminationOptionLabel(eliminationModeInput);
 setEquipmentEliminationOptionLabel(nextEliminationModeInput);
@@ -618,6 +626,50 @@ function setEquipmentEliminationOptionLabel(select) {
   if (equipmentOption) {
     equipmentOption.textContent = "ZENRA淘汰制";
   }
+}
+
+// Elimination units are independent of the equipment-discard unit.
+function usesTeamElimination(kind) {
+  const key = kind === "loss" ? "lossEliminationUnit" : "equipmentEliminationUnit";
+  // Old records used team losses and individual ZENRA headcounts.
+  if (!["person", "team"].includes(gameConfig[key])) return kind === "loss" && gameConfig.teamMode;
+  return gameConfig.teamMode && gameConfig.teamEquipmentSolidarity !== false && gameConfig[key] === "team";
+}
+
+function lossEliminationReached() {
+  const competitors = usesTeamElimination("loss") ? teams : participants;
+  return competitors.some(item => Number(usesTeamElimination("loss") ? item.losses : item.roundLosses) >= Number(gameConfig.lossLimit));
+}
+
+function getStrippedTeamIds() {
+  return new Set(participants.filter(person => Array.isArray(person.equipment) && person.equipment.length === 0 &&
+    teams.some(team => team.id === person.teamId)).map(person => person.teamId));
+}
+
+function equipmentEliminationReached() {
+  const count = usesTeamElimination("equipment") ? getStrippedTeamIds().size :
+    participants.filter(person => Array.isArray(person.equipment) && person.equipment.length === 0).length;
+  return count >= readPositiveInteger({ value: gameConfig.emptyEquipmentLimit });
+}
+
+function updateEliminationUnitAvailability(prefix = "") {
+  const id = name => prefix ? prefix + name[0].toUpperCase() + name.slice(1) : name;
+  const allowed = document.getElementById(id("teamMode"))?.checked &&
+    document.getElementById(id("teamEquipmentSolidarity"))?.checked;
+  for (const kind of ["loss", "equipment"]) {
+    const select = document.getElementById(id(kind + "EliminationUnit"));
+    select.disabled = !allowed;
+    select.parentElement.classList.toggle("hidden", !allowed);
+  }
+  const teamCount = allowed && document.getElementById(id("equipmentEliminationUnit")).value === "team";
+  document.querySelector("#" + id("emptyEquipmentLimitBox") + " .setting-title").textContent = teamCount ? "淘汰隊伍數" : "淘汰人數";
+}
+
+function restoreEliminationUnitControls(prefix = "") {
+  const id = name => prefix ? prefix + name[0].toUpperCase() + name.slice(1) : name;
+  document.getElementById(id("lossEliminationUnit")).value = gameConfig.lossEliminationUnit === "person" ? "person" : "team";
+  document.getElementById(id("equipmentEliminationUnit")).value = gameConfig.equipmentEliminationUnit === "team" ? "team" : "person";
+  updateEliminationUnitAvailability(prefix);
 }
 
 function readPositiveInteger(input, fallback = 1) {
@@ -946,6 +998,8 @@ async function createGame() {
         : "normal",
     eliminationMode: eliminationModeInput.value,
     lossLimit: lossLimit,
+    lossEliminationUnit: !document.getElementById("lossEliminationUnit").disabled ? document.getElementById("lossEliminationUnit").value : "person",
+    equipmentEliminationUnit: !document.getElementById("equipmentEliminationUnit").disabled ? document.getElementById("equipmentEliminationUnit").value : "person",
     emptyEquipmentLimit: readPositiveInteger(emptyEquipmentLimitInput),
     eliminationPenalty:
       eliminationPenaltyInput.value.trim()
@@ -2080,21 +2134,23 @@ function applyNormalResults(results) {
 
 function eliminateFullyStrippedParticipants() {
   if (gameConfig.eliminationMode !== "equipment") return [];
-
-  const stripped = participants.filter(participant => {
-    ensureEquipment(participant);
-    return !participant.eliminated && participant.equipment.length === 0;
+  participants.forEach(ensureEquipment);
+  if (!equipmentEliminationReached()) return [];
+  const teamIds = getStrippedTeamIds();
+  const eliminated = participants.filter(person => !person.eliminated &&
+    (usesTeamElimination("equipment") ? teamIds.has(person.teamId) : person.equipment.length === 0));
+  eliminated.forEach(person => {
+    person.eliminated = true;
+    if (usesTeamElimination("equipment")) {
+      person.pendingEquipmentLoss = false;
+      person.pendingEquipmentDiscards = 0;
+      person.pendingEquipmentSettlement = false;
+    }
   });
-
-  const limit = readPositiveInteger({
-    value: gameConfig.emptyEquipmentLimit
-  });
-  if (stripped.length < limit) return [];
-
-  stripped.forEach(participant => {
-    participant.eliminated = true;
-  });
-  return stripped;
+  if (usesTeamElimination("equipment")) {
+    teams.filter(team => teamIds.has(team.id)).forEach(team => { team.eliminated = true; });
+  }
+  return eliminated;
 }
 
 function assessHeadcountOutcome(
@@ -2522,7 +2578,7 @@ function applyTeamResults(activeTeams, results) {
 
         if (gameConfig.teamEquipmentSolidarity !== false) {
           participants
-            .filter(participant => participant.teamId === team.id)
+            .filter(participant => participant.teamId === team.id && !participant.eliminated)
             .forEach(handleEquipmentLoss);
         } else {
           handleEquipmentLoss(representative);
@@ -2536,6 +2592,7 @@ function applyTeamResults(activeTeams, results) {
       gameConfig.teamMode &&
       gameConfig.eliminationMode === "loss" &&
       !team.eliminated &&
+      usesTeamElimination("loss") &&
       team.losses >= gameConfig.lossLimit
     ) {
       team.eliminated = true;
@@ -2553,7 +2610,16 @@ function applyTeamResults(activeTeams, results) {
     }
   });
 
+  if (gameConfig.eliminationMode === "loss" && !usesTeamElimination("loss")) {
+    participants.filter(person => !person.eliminated && person.roundLosses >= gameConfig.lossLimit).forEach(person => {
+      person.eliminated = true;
+      eliminatedParticipants.push(person);
+    });
+  }
+
   eliminatedParticipants.push(...eliminateFullyStrippedParticipants());
+
+  teams.filter(team => team.eliminated && !eliminatedTeams.includes(team) && activeTeams.includes(team)).forEach(team => eliminatedTeams.push(team));
 
   return {
     eliminatedTeams: eliminatedTeams,
@@ -3573,6 +3639,7 @@ function importGameData(event) {
 
       lossLimitInput.value =
         gameConfig.lossLimit;
+  restoreEliminationUnitControls();
 
       eliminationPenaltyInput.value =
         gameConfig.eliminationPenalty;
@@ -3933,6 +4000,7 @@ function syncTournamentRoundToInterface() {
 
   lossLimitInput.value =
     gameConfig.lossLimit || 1;
+  restoreEliminationUnitControls();
 
   eliminationPenaltyInput.value =
     gameConfig.eliminationPenalty || "";
@@ -4204,6 +4272,7 @@ if (importExistingParticipantsInput) {
   if (nextLossLimitInput) {
     nextLossLimitInput.value =
       gameConfig.lossLimit || 1;
+    restoreEliminationUnitControls("next");
   }
 
   if (nextEmptyEquipmentLimitInput) {
@@ -4655,6 +4724,8 @@ newParticipants.forEach(participant => {
     equipmentRule: nextEquipmentRule,
     eliminationMode: nextEliminationMode,
     lossLimit: nextLossLimit,
+    lossEliminationUnit: !document.getElementById("nextLossEliminationUnit").disabled ? document.getElementById("nextLossEliminationUnit").value : "person",
+    equipmentEliminationUnit: !document.getElementById("nextEquipmentEliminationUnit").disabled ? document.getElementById("nextEquipmentEliminationUnit").value : "person",
     emptyEquipmentLimit: nextEmptyEquipmentLimit,
     eliminationPenalty: nextPenalty
   };
@@ -4834,21 +4905,8 @@ function addStartButton() {
 function isRoundStopped() {
   if (isFinalEquipmentSettlement()) return true;
 
-  if (gameConfig.eliminationMode === "loss") {
-    const competitors = gameConfig.teamMode ? teams : participants;
-    if (competitors.some(competitor =>
-      (gameConfig.teamMode ? competitor.losses : competitor.roundLosses) >= gameConfig.lossLimit
-    )) return true;
-  }
-
-  if (gameConfig.eliminationMode === "equipment") {
-    const strippedCount = participants.filter(participant =>
-      Array.isArray(participant.equipment) && participant.equipment.length === 0
-    ).length;
-    if (strippedCount >= readPositiveInteger({ value: gameConfig.emptyEquipmentLimit })) {
-      return true;
-    }
-  }
+  if (gameConfig.eliminationMode === "loss" && lossEliminationReached()) return true;
+  if (gameConfig.eliminationMode === "equipment" && equipmentEliminationReached()) return true;
 
   if (gameConfig.teamMode) {
     return teams.filter(isTeamEligibleToAct).length < 2;
