@@ -19,12 +19,30 @@ with sync_playwright() as p:
   route.fulfill(body=(ROOT/name).read_text(),content_type={'game.js':'text/javascript','style.css':'text/css','index.html':'text/html'}[name])
  page.route('http://units.test/**',serve);page.goto('http://units.test/')
  page.locator('#eliminationMode').select_option('loss')
- assert not page.locator('#lossEliminationUnit').is_visible()
+ assert page.locator('#lossEliminationUnit').is_visible()
+ assert page.locator('#lossEliminationUnit input[value=team]').is_disabled()
+ assert page.locator('#lossEliminationUnit input[value=person]').is_checked()
  page.locator('#teamMode').check();assert page.locator('#lossEliminationUnit').is_visible()
- page.locator('#teamEquipmentSolidarity').uncheck();assert not page.locator('#lossEliminationUnit').is_visible()
+ page.locator('#lossEliminationUnit input[value=team]').check()
+ assert not page.locator('#lossEliminationUnit input[value=person]').is_checked()
+ page.locator('#lossEliminationUnit input[value=person]').check()
+ assert not page.locator('#lossEliminationUnit input[value=team]').is_checked()
+ page.locator('#teamEquipmentSolidarity').uncheck();assert page.locator('#lossEliminationUnit input[value=team]').is_disabled()
  page.locator('#teamEquipmentSolidarity').check()
- page.locator('#lossEliminationUnit').select_option('person')
- page.locator('#equipmentEliminationUnit').select_option('team',force=True)
+ page.locator('#lossEliminationUnit input[value=person]').evaluate("e=>{e.checked=true;e.dispatchEvent(new Event('change',{bubbles:true}))}")
+ page.locator('#equipmentEliminationUnit input[value=team]').evaluate("e=>{e.checked=true;e.dispatchEvent(new Event('change',{bubbles:true}))}")
+ page.locator('#eliminationMode').select_option('equipment')
+ assert page.locator('#emptyEquipmentLimitBox .setting-title').inner_text()=='淘汰門檻'
+ page.locator('#equipmentEliminationUnit input[value=person]').check()
+ page.locator('#equipmentEliminationUnit input[value=team]').check()
+ assert not page.locator('#equipmentEliminationUnit input[value=person]').is_checked()
+ for width in [390,1200]:
+  page.set_viewport_size({'width':width,'height':900})
+  number=page.locator('#emptyEquipmentLimit').bounding_box()
+  units=page.locator('#equipmentEliminationUnit').bounding_box()
+  if width==1200: assert units['x']>number['x']+number['width'] and abs(units['y']-number['y'])<20
+  assert page.evaluate('document.documentElement.scrollWidth<=innerWidth')
+ page.locator('#eliminationMode').select_option('loss')
  page.locator('#playerCount').fill('6');page.locator('#createGameBtn').click()
  assert page.evaluate("gameConfig.lossEliminationUnit==='person' && gameConfig.equipmentEliminationUnit==='team'")
  page.evaluate(SETUP)
@@ -53,16 +71,18 @@ with sync_playwright() as p:
  page.evaluate(SETUP)
 
  page.evaluate("gameConfig.lossEliminationUnit='person';gameConfig.equipmentEliminationUnit='team';saveCurrentTournamentRoundSnapshot();syncTournamentRoundToInterface();openNextTournamentRoundSettings()")
- assert page.locator('#nextLossEliminationUnit').input_value()=='person'
- assert page.locator('#nextEquipmentEliminationUnit').input_value()=='team'
+ assert page.locator('#nextLossEliminationUnit input:checked').input_value()=='person'
+ assert page.locator('#nextEquipmentEliminationUnit input:checked').input_value()=='team'
  page.locator('#nextEliminationMode').select_option('equipment')
  assert page.locator('#nextEquipmentEliminationUnit').is_visible()
- assert page.locator('#nextEmptyEquipmentLimitBox .setting-title').inner_text()=='淘汰隊伍數'
+ assert page.locator('#nextEmptyEquipmentLimitBox .setting-title').inner_text()=='淘汰門檻'
  page.locator('#nextTeamEquipmentSolidarity').uncheck()
- assert not page.locator('#nextEquipmentEliminationUnit').is_visible()
+ assert page.locator('#nextEquipmentEliminationUnit').is_visible()
+ assert page.locator('#nextEquipmentEliminationUnit input[value=team]').is_disabled()
+ assert page.locator('#nextEquipmentEliminationUnit input[value=person]').is_checked()
  page.locator('#nextTeamEquipmentSolidarity').check()
- page.locator('#nextLossEliminationUnit').select_option('team',force=True)
- page.locator('#nextEquipmentEliminationUnit').select_option('team')
+ page.locator('#nextLossEliminationUnit input[value=team]').evaluate("e=>{e.checked=true;e.dispatchEvent(new Event('change',{bubbles:true}))}")
+ page.locator('#nextEquipmentEliminationUnit input[value=team]').evaluate("e=>{e.checked=true;e.dispatchEvent(new Event('change',{bubbles:true}))}")
  page.locator('#createNewParticipants').check()
  page.locator('#nextPlayerCount').fill('6')
  page.locator('#confirmNextRoundBtn').click()
@@ -72,10 +92,10 @@ with sync_playwright() as p:
  page.evaluate("window.unitsExport=JSON.stringify({gameConfig,participants,teams,roundNumber,roundHistory,tournamentRoundNumber,tournamentRounds})")
  page.evaluate("gameConfig.lossEliminationUnit='person';gameConfig.equipmentEliminationUnit='person';importGameData({target:{files:[new File([unitsExport],'units.json',{type:'application/json'})],value:''}})")
  page.wait_for_function("gameConfig.equipmentEliminationUnit==='team'")
- assert page.locator('#equipmentEliminationUnit').input_value()=='team'
+ assert page.locator('#equipmentEliminationUnit input:checked').input_value()=='team'
  page.evaluate('resetCurrentRound()')
  page.wait_for_function('roundBusy===false')
  assert page.evaluate("gameConfig.equipmentEliminationUnit==='team' && participants.every(p=>!p.eliminated && p.roundLosses===0) && teams.every(t=>t.losses===0)")
  assert not errors,errors
  b.close()
- print('PASS: unit visibility, initial config, representative rotation, personal/team losses, unique-team ZENRA, solidarity, pending cleanup, legacy defaults')
+ print('PASS: visible disabled radios, mutual exclusion, personal defaults, responsive layout, initial config, representative rotation, personal/team losses, unique-team ZENRA, solidarity, pending cleanup, legacy defaults')
