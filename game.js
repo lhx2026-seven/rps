@@ -284,8 +284,6 @@ let playerThrows = {};
 let teamRepresentatives = {};
 let roundNumber = 0;
 let roundHistory = [];
-let headcountHandTransaction = null;
-let headcountReplayParticipantIds = null;
 let tournamentFrozen = false;
 let saveDirectoryHandle = null;
 let saveFileName = "";
@@ -735,6 +733,7 @@ function normalizeRoundLossCounters() {
 function getParticipantRoundResults(participant) {
   const totals = { wins: 0, losses: 0, ties: 0 };
   roundHistory.forEach(record => {
+    if (record.zenraPlayoff) return;
     let result = null;
     if (record.mode === "normal") {
       result = record.results?.[participant.id];
@@ -1634,7 +1633,10 @@ function renderOperationPanel() {
 
   operationList.innerHTML = "";
 
-  if (gameConfig.teamMode) {
+  if (gameConfig.zenraPlayoff?.remaining) {
+    renderZenraPlayoff();
+    addStartButton();
+  } else if (gameConfig.teamMode) {
     renderTeamOperation();
   } else {
     renderNormalOperation();
@@ -1662,14 +1664,8 @@ function isHeadcountFrozen(participant) {
 }
 
 function isParticipantEligibleToAct(participant) {
-  if (participant.eliminated || isHeadcountFrozen(participant)) {
+  if (participant.eliminated || (!gameConfig.zenraPlayoff && isHeadcountFrozen(participant))) {
     return false;
-  }
-
-  if (Array.isArray(headcountReplayParticipantIds)) {
-    return headcountReplayParticipantIds.some(
-      id => Number(id) === Number(participant.id)
-    );
   }
 
   return true;
@@ -1750,7 +1746,7 @@ function isTeamEligibleToAct(team) {
     if (participant.teamId !== team.id || participant.eliminated) {
       return false;
     }
-    if (gameConfig.eliminationMode !== "equipment") return true;
+    if (gameConfig.eliminationMode !== "equipment" || gameConfig.zenraPlayoff?.remaining === 0) return true;
     ensureEquipment(participant);
     return participant.equipment.length > 0;
   });
@@ -1903,7 +1899,9 @@ if (hasPendingEquipment()) {
   }
 
   try {
-    if (gameConfig.teamMode) {
+    if (gameConfig.zenraPlayoff?.remaining) {
+      await startZenraPlayoff();
+    } else if (gameConfig.teamMode) {
       await startTeamRound();
     } else {
       await startNormalRound();
@@ -1946,21 +1944,7 @@ async function startNormalRound() {
     }
   }
 
-  if (
-    gameConfig.eliminationMode === "equipment" &&
-    !gameConfig.teamMode
-  ) {
-    headcountHandTransaction = {
-      participants: copyObject(participants),
-      teams: copyObject(teams),
-      roundNumber,
-      roundHistory: copyObject(roundHistory)
-    };
-  } else {
-    headcountHandTransaction = null;
-    headcountReplayParticipantIds = null;
-  }
-
+  beginZenraHand();
   roundNumber++;
 
   const throws =
@@ -2001,11 +1985,7 @@ async function startNormalRound() {
     appendEquipmentDiscardMessage
   );
 
-  if (headcountHandTransaction) {
-    await resolveHeadcountHandAfterDiscards();
-  } else {
-    checkGameEnd();
-  }
+  checkGameEnd();
 }
 
 function generateNormalThrows(activeParticipants) {
@@ -2146,7 +2126,7 @@ function applyNormalResults(results) {
 }
 
 function eliminateFullyStrippedParticipants() {
-  if (gameConfig.eliminationMode !== "equipment") return [];
+  if (gameConfig.eliminationMode !== "equipment" || gameConfig.zenraHandBefore || gameConfig.zenraPlayoff) return [];
   participants.forEach(ensureEquipment);
   if (!equipmentEliminationReached()) return [];
   const teamIds = getStrippedTeamIds();
@@ -2166,150 +2146,144 @@ function eliminateFullyStrippedParticipants() {
   return eliminated;
 }
 
-function assessHeadcountOutcome(
-  beforeParticipants,
-  afterParticipants,
-  limit
-) {
-  const beforeById = new Map(
-    beforeParticipants.map(participant => [
-      Number(participant.id),
-      participant
-    ])
-  );
-
-  const stripped = afterParticipants.filter(participant => {
-    return (
-      !participant.eliminated &&
-      Array.isArray(participant.equipment) &&
-      participant.equipment.length === 0
-    );
-  });
-
-  const replayCandidates = stripped.filter(participant => {
-    const before = beforeById.get(Number(participant.id));
-
-    return (
-      before &&
-      !before.eliminated &&
-      Array.isArray(before.equipment) &&
-      before.equipment.length > 0 &&
-      !participant.eliminated &&
-      Array.isArray(participant.equipment) &&
-      participant.equipment.length === 0
-    );
-  });
-
-  return {
-    strippedCount: stripped.length,
-    replayCandidates,
-    exceedsLimit: stripped.length > limit
-  };
+function getZenraUnits() {
+  return usesTeamElimination("equipment") ? teams : participants;
 }
 
-async function resolveHeadcountHandAfterDiscards() {
-  const transaction = headcountHandTransaction;
+function getZenraZeroIds() {
+  return usesTeamElimination("equipment") ? [...getStrippedTeamIds()] :
+    participants.filter(person => person.equipment?.length === 0).map(person => person.id);
+}
 
-  if (
-    !transaction ||
-    gameConfig.eliminationMode !== "equipment" ||
-    gameConfig.teamMode ||
-    hasPendingEquipment()
-  ) {
+function beginZenraHand() {
+  if (gameConfig.eliminationMode === "equipment") {
+    gameConfig.zenraHandBefore = getZenraZeroIds();
+  }
+}
+
+function resolveZenraHand() {
+  const before = gameConfig.zenraHandBefore;
+  if (!before || hasPendingEquipment()) return;
+  delete gameConfig.zenraHandBefore;
+
+  const zeroIds = getZenraZeroIds();
+  const limit = readPositiveInteger({ value: gameConfig.emptyEquipmentLimit });
+  const previous = zeroIds.filter(id => before.includes(id));
+  const candidates = zeroIds.filter(id => !before.includes(id));
+
+  if (zeroIds.length > limit && previous.length < limit) {
+    gameConfig.zenraPlayoff = { candidates, eliminated: previous, remaining: limit - previous.length };
     return;
   }
 
-  const limit = readPositiveInteger({
-    value: gameConfig.emptyEquipmentLimit
-  });
-
-  const outcome = assessHeadcountOutcome(
-    transaction.participants,
-    participants,
-    limit
-  );
-
-  if (
-    outcome.exceedsLimit &&
-    outcome.replayCandidates.length >= 2
-  ) {
-    const replayCandidates = outcome.replayCandidates;
-
-    participants = copyObject(transaction.participants);
-    teams = copyObject(transaction.teams);
-    roundNumber = transaction.roundNumber;
-    roundHistory = copyObject(transaction.roundHistory);
-
-    currentEquipmentDiscards = [];
-    playerThrows = {};
-    headcountHandTransaction = null;
-
-    headcountReplayParticipantIds =
-      replayCandidates.map(participant => participant.id);
-
-    resultList.innerHTML = "";
-    resultPanel.classList.remove("hidden");
-
-    renderParticipantSettings();
-    renderOperationPanel();
-    renderStats();
-
-    saveCurrentTournamentRoundSnapshot();
-    await saveGameState();
-
-    alert(
-      `本把會超過「${limit} 人」的淘汰門檻，` +
-      "本把結果已作廢。請只有剛才需要脫掉最後一件的參賽者重猜。"
-    );
-
-    return;
+  const history = roundHistory[roundHistory.length - 1];
+  const eliminated = eliminateFullyStrippedParticipants();
+  if (history && eliminated.length) {
+    recordZenraEliminations(history, eliminated);
   }
+}
 
-  const eliminatedNow =
-    eliminateFullyStrippedParticipants();
+function recordZenraEliminations(history, eliminated) {
+  history.eliminated = [...new Set([...(history.eliminated || []), ...eliminated.map(person => person.id)])];
+  if (usesTeamElimination("equipment")) {
+    history.eliminatedTeams = [...new Set(eliminated.map(person => person.teamId))];
+  }
+  history.eliminationPenalty = gameConfig.eliminationPenalty || "";
+  history.penalty = history.eliminationPenalty;
+}
 
-  headcountHandTransaction = null;
-  headcountReplayParticipantIds = null;
+function getZenraPlayoffEntries() {
+  return getZenraUnits().filter(unit => gameConfig.zenraPlayoff.candidates.includes(unit.id));
+}
 
-  const history = roundHistory.findLast
-    ? roundHistory.findLast(item => item.round === roundNumber)
-    : [...roundHistory]
-        .reverse()
-        .find(item => item.round === roundNumber);
-
-  if (history && eliminatedNow.length) {
-    if (!Array.isArray(history.eliminated)) {
-      history.eliminated = [];
+function renderZenraPlayoff() {
+  const playoff = gameConfig.zenraPlayoff;
+  const unit = usesTeamElimination("equipment") ? "隊" : "人";
+  operationList.appendChild(element("div", `ZENRA 加賽｜剩餘淘汰名額：${playoff.remaining} ${unit}`));
+  for (const entry of getZenraPlayoffEntries()) {
+    const card = element("div", undefined, "operation-card");
+    card.appendChild(element("strong", entry.name));
+    if (entry.controlled) {
+      const buttons = element("div", undefined, "throw-buttons");
+      for (const fist of ["rock", "paper", "scissors"]) {
+        const button = createThrowButton(fist, () => {
+          playerThrows[entry.id] = fist;
+          renderOperationPanel();
+        });
+        if (playerThrows[entry.id] === fist) button.style.outline = "3px solid #222";
+        buttons.appendChild(button);
+      }
+      card.appendChild(buttons);
+    } else {
+      card.appendChild(element("div", "電腦自動出拳", "small"));
     }
+    operationList.appendChild(card);
+  }
+}
 
-    history.eliminated.push(
-      ...eliminatedNow.map(participant => participant.id)
-    );
-
-    history.eliminationPenalty =
-      gameConfig.eliminationPenalty || "";
-
-    history.penalty =
-      gameConfig.eliminationPenalty || "";
-
-    const message = element(
-      "div",
-      "淘汰者：" +
-        eliminatedNow.map(participant => participant.name).join("、"),
-      "danger round-elimination-notice"
-    );
-
-    message.style.marginTop = "15px";
-    resultList.appendChild(message);
+async function startZenraPlayoff() {
+  const playoff = gameConfig.zenraPlayoff;
+  const byTeam = usesTeamElimination("equipment");
+  const entries = getZenraPlayoffEntries();
+  for (const entry of entries) {
+    if (entry.controlled && !playerThrows[entry.id]) {
+      alert(`${entry.name} 尚未選擇出拳。`);
+      return;
+    }
   }
 
+  const throws = generateCrossThrows(byTeam
+    ? entries.map(team => ({ ...team, winRate: getTeamAverageWinRate(team) }))
+    : entries, playerThrows);
+  const results = calculateNormalResults(entries, throws);
+  const losers = entries.filter(entry => results[entry.id] === "loss").map(entry => entry.id);
+  if (losers.length > playoff.remaining) {
+    playoff.candidates = losers;
+  } else if (losers.length) {
+    playoff.eliminated.push(...losers);
+    playoff.remaining -= losers.length;
+    playoff.candidates = entries.filter(entry => results[entry.id] === "win").map(entry => entry.id);
+  }
+
+  const eliminated = [];
+  if (!playoff.remaining) {
+    for (const entry of getZenraUnits()) {
+      if (!playoff.eliminated.includes(entry.id)) continue;
+      if (byTeam) {
+        entry.eliminated = true;
+        eliminated.push(...participants.filter(person => person.teamId === entry.id));
+      } else {
+        eliminated.push(entry);
+      }
+    }
+    eliminated.forEach(person => { person.eliminated = true; });
+  }
+
+  roundNumber++;
+  playerThrows = {};
+  resultList.innerHTML = "";
+  resultPanel.classList.remove("hidden");
+  for (const entry of entries) {
+    const outcome = { win: "勝", loss: "敗", tie: "平手" }[results[entry.id]];
+    resultList.appendChild(element("div", `${entry.name} ${fistEmoji(throws[entry.id])} ${outcome}`));
+  }
+  if (playoff.remaining) {
+    resultList.appendChild(element("div", losers.length ? "剩餘名額繼續加賽。" : "平手，請再猜一次。"));
+  }
+
+  const history = {
+    mode: byTeam ? "team" : "normal",
+    zenraPlayoff: true,
+    round: roundNumber,
+    throws,
+    results,
+    representatives: byTeam ? copyObject(teamRepresentatives) : undefined
+  };
+  if (eliminated.length) recordZenraEliminations(history, eliminated);
   renderParticipantSettings();
   renderOperationPanel();
   renderStats();
-
-  saveCurrentTournamentRoundSnapshot();
-  await saveGameState();
-
+  await saveRoundToHistory(history);
   checkGameEnd();
 }
 
@@ -2452,6 +2426,7 @@ async function startTeamRound() {
     }
   }
 
+  beginZenraHand();
   roundNumber++;
 
   const throws = generateCrossThrows(
@@ -3201,6 +3176,7 @@ function getSnapshotParticipantRoundStats(snapshot, participant) {
   let hasHistory = false;
 
   (snapshot.roundHistory || []).forEach(record => {
+    if (record.zenraPlayoff) return;
     let result = null;
 
     if (record.mode === "normal") {
@@ -3365,6 +3341,12 @@ async function saveRoundToHistory(roundData) {
       gameConfig.eliminationPenalty
   });
 
+  if (gameConfig.zenraHandBefore && !hasPendingEquipment()) {
+    resolveZenraHand();
+    renderParticipantSettings();
+    renderOperationPanel();
+    renderStats();
+  }
   saveCurrentTournamentRoundSnapshot();
   await saveGameState();
 }
@@ -4864,8 +4846,8 @@ function addStartButton() {
     start.id = "startRoundBtn";
   }
 
-  start.textContent = "START！";
   start.onclick = startRound;
+  start.textContent = gameConfig.zenraPlayoff?.remaining ? "開始加賽" : "START！";
   start.disabled =
     roundBusy || hasPendingEquipment() || isRoundStopped();
 
@@ -4916,6 +4898,7 @@ function addStartButton() {
 }
 
 function isRoundStopped() {
+  if (gameConfig.zenraHandBefore || gameConfig.zenraPlayoff?.remaining) return false;
   if (isFinalEquipmentSettlement()) return true;
 
   if (gameConfig.eliminationMode === "loss" && lossEliminationReached()) return true;
@@ -4973,6 +4956,8 @@ async function resetCurrentRound() {
   roundBusy = true;
 
   try {
+    delete gameConfig.zenraHandBefore;
+    delete gameConfig.zenraPlayoff;
     delete gameConfig.equipmentSettlementStarted;
     participants.forEach(participant => {
       ensureEquipment(participant);
@@ -5779,6 +5764,7 @@ function renderEquipmentDiscardPanel() {
         history.equipmentDiscards.push(record);
       }
 
+      resolveZenraHand();
       const eliminatedNow = eliminateFullyStrippedParticipants();
       if (history && eliminatedNow.length) {
         if (!Array.isArray(history.eliminated)) history.eliminated = [];
@@ -5796,7 +5782,7 @@ function renderEquipmentDiscardPanel() {
 
       saveCurrentTournamentRoundSnapshot();
       await saveGameState();
-      if (eliminatedNow.length) checkGameEnd();
+      checkGameEnd();
     });
 
     box.appendChild(confirm);
@@ -5808,9 +5794,12 @@ function renderEquipmentDiscardPanel() {
       finish.disabled = roundBusy;
 
       finish.addEventListener("click", async () => {
+        if (roundBusy || tournamentFrozen) return;
+
         participant.pendingEquipmentLoss = false;
         participant.pendingEquipmentDiscards = 0;
 
+        resolveZenraHand();
         renderParticipantSettings();
         renderOperationPanel();
         renderStats();
@@ -5818,6 +5807,7 @@ function renderEquipmentDiscardPanel() {
 
         saveCurrentTournamentRoundSnapshot();
         await saveGameState();
+        checkGameEnd();
       });
 
       box.appendChild(finish);
